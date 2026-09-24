@@ -53,6 +53,7 @@ src/
   Maseera.Data   the connection factory, the procedure runner, the repositories
   Maseera.Sql    a home for database assets
   Maseera.Web    controllers, views, view components, tag helpers, Sass, JS, fonts
+dist/         a ready-made database: flat .sql files and a .bak. Generated.
 tests/
   Maseera.Tests.Unit  needs nothing
   Maseera.Tests.Sql   needs a DB02 to read; skips with a sentence without one
@@ -66,6 +67,12 @@ docs/
 ## Getting it running
 
 You need the .NET 9 SDK and a SQL Server. No Docker.
+
+Already have SQL Server? [`dist/`](dist/README.md) holds a ready-made database three ways:
+a single `.sql` file that runs with F5 in SSMS on any version, the same plus demo data, and
+a 3.3 MB `.bak` for SQL Server 2022 or later.
+
+Otherwise:
 
 ```powershell
 .\build\setup-local.ps1 -WithDemoData      # or: build/setup-local.sh --with-demo
