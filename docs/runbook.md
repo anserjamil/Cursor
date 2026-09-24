@@ -1,5 +1,53 @@
 # Running Maseera
 
+## Setting up a local database
+
+There is a script for this, because the steps below are the same every time and getting
+one of them slightly wrong produces an error a long way from its cause.
+
+```powershell
+.\build\setup-local.ps1 -WithDemoData
+```
+
+```bash
+build/setup-local.sh --with-demo
+```
+
+It finds a SQL Server you can already reach — trying the local default instance, then
+`.\SQLEXPRESS`, then LocalDB — creates DB02, runs the whole migration, and with
+`-WithDemoData` loads the development fixture so there is something to look at. Running it
+twice is the normal case: the migration is idempotent and an existing DB02 is migrated over
+rather than replaced. `-Recreate` drops it first, and asks before it does.
+
+Neither script needs Docker. Both refuse to do anything if `sqlcmd` is missing and say how
+to get it.
+
+### If you have no SQL Server yet
+
+Any of these is enough, and none of them is Docker:
+
+| | |
+|---|---|
+| **Developer Edition** | Free, full featured, closest to production. [Download](https://www.microsoft.com/sql-server/sql-server-downloads) |
+| **Express** | Free, smaller, plenty for this. `winget install Microsoft.SQLServer.2022.Express` |
+| **LocalDB** | The lightest: no service, starts on demand. Comes with the Visual Studio "Data storage and processing" workload, or the Express installer's LocalDB option. |
+
+On Linux, SQL Server installs natively from Microsoft's apt or yum repositories. On macOS
+it does not exist natively at all — there, it is Docker, a Linux VM, or a server elsewhere
+on the network, and `build/setup-local.sh` with `MASEERA_SERVER` set will reach the last
+of those.
+
+### A password is never put on a command line
+
+Both scripts prompt for a SQL login's password and pass it through `SQLCMDPASSWORD`, which
+`sqlcmd` reads itself. A password given as `-P` is visible to every other process on the
+machine for as long as the command runs; an environment variable set for one process and
+its children is not. The scripts clear it again when they finish.
+
+Windows authentication needs none of this, and is the default.
+
+---
+
 ## The database
 
 There is **one** database and its name is **DB02**. The application never builds a

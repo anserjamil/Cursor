@@ -65,14 +65,26 @@ docs/
 
 ## Getting it running
 
-See [`docs/runbook.md`](docs/runbook.md). In short:
+You need the .NET 9 SDK and a SQL Server. No Docker.
 
-```
-sqlcmd -S <server> -d DB02 -E -b -I -i db/00_run_all.sql
-dotnet run --project src/Maseera.Web
+```powershell
+.\build\setup-local.ps1 -WithDemoData      # or: build/setup-local.sh --with-demo
+dotnet run --project src\Maseera.Web
 ```
 
-Then open `/Admin/Health` and check that everything is green.
+The setup script finds a SQL Server you can reach, creates DB02, runs the migration, and
+with the demo-data switch loads 624 invented people and an open cycle so there is
+something to look at. It is safe to run twice.
+
+Then open **http://localhost:5180** and check `/Admin/Health` is green.
+
+In Development the account menu has a "Sign in as" switcher. `maseera.hrbp` sees all 398
+people in the demo cycle; `maseera.svp` sees 197 of the same cycle, because they are
+granted one division. That is the row-level security working, and `/Admin/Rls` puts the
+two scopes side by side.
+
+[`docs/runbook.md`](docs/runbook.md) has the rest: doing it by hand, the rights a real
+service account needs, and what will bite.
 
 ## Scale it is built for
 
