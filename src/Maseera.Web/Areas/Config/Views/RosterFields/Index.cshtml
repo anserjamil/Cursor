@@ -1,0 +1,170 @@
+@model RosterFieldsViewModel
+@{
+    ViewData["Title"] = "Roster fields";
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Configuration</div>
+    <div class="ms-hero__line">Every column on the employee record.</div>
+    <p class="ms-hero__sub">
+        A column is discovered switched off. <strong>Enabled</strong> means it may be used
+        as a criterion. <strong>Sensitive</strong> means it stays readable on a person's
+        record and is refused as a filter — and the refusal says which column and why.
+        They are different questions, and a sensitive column is never enabled.
+    </p>
+
+    <div class="ms-hero__stats">
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.Summary.TotalFields.ToString("N0")</div>
+            <div class="ms-stat__label">Columns</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.Summary.EnabledCount.ToString("N0")</div>
+            <div class="ms-stat__label">Usable as criteria</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.Summary.SensitiveCount.ToString("N0")</div>
+            <div class="ms-stat__label">Sensitive</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.Summary.MissingCount.ToString("N0")</div>
+            <div class="ms-stat__label">No longer on the table</div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Summary.MissingCount > 0)
+{
+    <p class="ms-sentence ms-sentence--warn">
+        @Model.Summary.MissingCount @(Model.Summary.MissingCount == 1 ? "column was" : "columns were")
+        discovered once and are not on the roster table now. Any criterion naming one
+        refuses rather than silently matching nobody.
+    </p>
+}
+
+<div class="ms-toolbar">
+    <form method="get" class="ms-toolbar__search">
+        <input type="search" name="q" value="@Model.Search" class="ms-input"
+               placeholder="Search by column or caption" aria-label="Search fields" />
+        <label class="ms-check">
+            <input type="checkbox" name="enabledOnly" value="true" checked="@Model.EnabledOnly" />
+            Enabled only
+        </label>
+        <button type="submit" class="ms-btn">Apply</button>
+    </form>
+
+    <span class="ms-topbar__spacer"></span>
+
+    @if (Model.CanWrite)
+    {
+        <form method="post" asp-action="Sync" class="ms-inline-form">
+            <button type="submit" class="ms-btn"
+                    title="Re-read the roster table's columns. New ones arrive switched off.">
+                Re-read the columns
+            </button>
+        </form>
+    }
+</div>
+
+@if (Model.Fields.Count == 0)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("No columns match",
+         "Clear the filters, or re-read the columns if the roster has only just been mapped.",
+         (string?)null, (string?)null))
+}
+else
+{
+    <div class="ms-table-wrap" data-table>
+        <table class="ms-table">
+            <thead>
+                <tr>
+                    <th class="is-sticky-col">Column</th>
+                    <th>Caption</th>
+                    <th>Group</th>
+                    <th>Type</th>
+                    <th>Source</th>
+                    <th class="ms-table__num">Used by</th>
+                    <th>Enabled</th>
+                    <th>Sensitive</th>
+                    @if (Model.CanWrite)
+                    {
+                        <th></th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var field in Model.Fields)
+            {
+                <tr class="@(field.IsPresent ? "" : "is-warned") @(field.IsSensitive ? "is-sensitive" : "")">
+                    <td class="is-sticky-col">
+                        <ms-code>@field.FieldName</ms-code>
+                        @if (!field.IsPresent)
+                        {
+                            <state-chip role="danger" label="Not on the table"></state-chip>
+                        }
+                    </td>
+                    <td>@field.Caption</td>
+                    <td>@(field.GroupName ?? "—")</td>
+                    <td>
+                        <ms-code>@field.DataType</ms-code>
+                        @if (field.SqlType is not null)
+                        {
+                            <span class="ms-micro">@field.SqlType</span>
+                        }
+                    </td>
+                    <td>
+                        @* ROSTER is a column on the employee table; METRIC is a computed
+                           figure. Both may be criteria, and the list says which is which. *@
+                        <span class="ms-tag">@field.SourceKind</span>
+                    </td>
+                    <td class="ms-table__num" title="Criteria naming this column today">
+                        @field.UsageCount.ToString("N0")
+                    </td>
+                    <td>
+                        @if (field.IsEnabled)
+                        {
+                            <state-chip role="success" label="Enabled"></state-chip>
+                        }
+                        else
+                        {
+                            <span class="ms-table__recessive">Off</span>
+                        }
+                    </td>
+                    <td>
+                        @if (field.IsSensitive)
+                        {
+                            <state-chip role="warning" label="Sensitive"></state-chip>
+                        }
+                    </td>
+                    @if (Model.CanWrite)
+                    {
+                        <td>
+                            <form method="post" asp-action="Save" class="ms-inline-form">
+                                <input type="hidden" name="rosterFieldId" value="@field.RosterFieldId" />
+                                <input name="caption" class="ms-input ms-input--sm" value="@field.Caption"
+                                       aria-label="@($"Caption for {field.FieldName}")" />
+                                <input name="groupName" class="ms-input ms-input--sm" value="@field.GroupName"
+                                       placeholder="Group" aria-label="@($"Group for {field.FieldName}")" />
+                                <label class="ms-check">
+                                    <input type="checkbox" name="isEnabled" value="true" checked="@field.IsEnabled" />
+                                    On
+                                </label>
+                                <label class="ms-check">
+                                    <input type="checkbox" name="isSensitive" value="true" checked="@field.IsSensitive" />
+                                    Sensitive
+                                </label>
+                                <button type="submit" class="ms-btn ms-btn--sm">Save</button>
+                            </form>
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

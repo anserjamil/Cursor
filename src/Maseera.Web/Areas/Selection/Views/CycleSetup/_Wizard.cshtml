@@ -1,0 +1,37 @@
+@model WizardViewModel
+@{
+    var cycle = Model.Detail.Cycle!;
+}
+
+@* Chrome on every step: the numbered pills, the progress meter, the read-only bar with
+   its reason, and the delegate banner. *@
+<div class="ms-wizard__head">
+    <nav class="ms-breadcrumb" aria-label="Breadcrumb">
+        <a asp-controller="Cycles" asp-action="Index">Cycles</a>
+        <span aria-hidden="true">›</span>
+        <span class="ms-code">@cycle.CycleCode</span>
+        <span aria-hidden="true">›</span>
+        <span>@cycle.Name</span>
+    </nav>
+
+    @await Component.InvokeAsync("StepMeter", new
+    {
+        steps = Model.Detail.Steps,
+        currentStep = Model.StepNo,
+        cycleId = cycle.CycleId,
+        todos = Model.Todos,
+        meter = Model.ProgressMeter
+    })
+</div>
+
+@if (Model.ReadOnlyReason is not null)
+{
+    @await Html.PartialAsync("_ReadOnlyBar", Model.ReadOnlyReason)
+}
+
+@if (cycle.DelegateLogin is not null && cycle.DelegateLogin == Viewer.LoginName)
+{
+    <div class="ms-delegate-banner">
+        You are the delegate on this design, so you can change it as though it were yours.
+    </div>
+}

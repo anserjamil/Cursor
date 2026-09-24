@@ -1,0 +1,525 @@
+@model ProfileViewModel
+@{
+    var person = Model.Profile.Person!;
+    ViewData["Title"] = person.FullName;
+
+    // The last three appraisal years, newest first, as the letters the business uses.
+    var recentRatings = Model.Profile.Performance
+        .OrderByDescending(r => r.RatingYear)
+        .Take(3)
+        .ToList();
+
+    // Assignments split the way the business reads them: the substantive job, and the
+    // acting spells that build the case for readiness.
+    var permanent = Model.Profile.Coverage
+        .Where(c => string.Equals(c.CoverageType, "PERMANENT", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.StartDate).ToList();
+    var temporary = Model.Profile.Coverage
+        .Where(c => !string.Equals(c.CoverageType, "PERMANENT", StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(c => c.StartDate).ToList();
+
+    // Requirements arrive ordered by framework level. Grouping keeps each level's ask
+    // under the level, which is how the ladder is read aloud in a calibration meeting.
+    var byLevel = Model.Profile.Requirements
+        .GroupBy(r => (r.FrameworkName, r.LevelNo))
+        .OrderBy(g => g.Key.LevelNo)
+        .ThenBy(g => g.Key.FrameworkName)
+        .ToList();
+
+    var attainment = Model.Profile.Attainment;
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Person</div>
+    <div class="ms-hero__line">@person.FullName</div>
+    <p class="ms-hero__sub">
+        <ms-code>@person.PersonnelNo</ms-code> · @person.OrgName
+        @if (person.OrgLevel is { } level)
+        {
+            <span class="ms-micro">level @level</span>
+        }
+        @if (!person.IsActive)
+        {
+            <state-chip role="neutral" label="No longer active"></state-chip>
+        }
+    </p>
+
+    <div class="ms-hero__actions">
+        <a class="ms-btn" asp-controller="Compare" asp-action="Index"
+           asp-route-personnelNo="@person.PersonnelNo" asp-route-cycleId="@Model.CycleId">Compare</a>
+        @if (Model.CycleId is { } cycleId)
+        {
+            <button type="button" class="ms-btn" data-drawer-open
+                    data-src="@Url.Action("Trace", "Profile", new { cycleId, personnelNo = person.PersonnelNo })"
+                    data-title="Why this person is in the pool">Why they are here</button>
+        }
+        <a class="ms-btn" asp-controller="Idp" asp-action="Index"
+           asp-route-personnelNo="@person.PersonnelNo">Development plan</a>
+    </div>
+</div>
+
+@* ---- the facts, stated once, in the order they are asked for ------------------- *@
+<section class="ms-card">
+    <div class="ms-card__head"><h2 class="ms-card__title">The facts</h2></div>
+    <div class="ms-card__body">
+        <dl class="ms-facts">
+            <div><dt>Current job</dt><dd>@(person.JobTitle ?? "—")</dd></div>
+            <div>
+                <dt>Current suffix</dt>
+                <dd>
+                    <ms-code>@(person.CurrentJobSuffix ?? "—")</ms-code>
+                    @if (person.CurrentJobSuffix is not null
+                         && !string.Equals(person.CurrentJobSuffix, person.PermJobSuffix, StringComparison.Ordinal))
+                    {
+                        <span class="ms-tag" title="They are acting in a suffix that is not their own">Acting</span>
+                    }
+                </dd>
+            </div>
+            <div>
+                <dt>Permanent suffix</dt>
+                <dd>
+                    <ms-code>@(person.PermJobSuffix ?? "—")</ms-code>
+                    @if (person.PermJobSuffixDesc is not null)
+                    {
+                        <span class="ms-micro">@person.PermJobSuffixDesc</span>
+                    }
+                </dd>
+            </div>
+            <div><dt>Organisation</dt><dd>@(person.OrgName ?? person.OrgCode) <ms-code>@person.OrgCode</ms-code></dd></div>
+            <div><dt>Grade</dt><dd><ms-code>@(person.GradeCode ?? "—")</ms-code></dd></div>
+            <div><dt>Management level</dt><dd><ms-code>@(person.ManagementLevelCode ?? "—")</ms-code></dd></div>
+            <div><dt>Hired</dt><dd><as-of-date value="@person.HireDate"></as-of-date></dd></div>
+            <div><dt>Last promoted</dt><dd><as-of-date value="@person.PromotionDate"></as-of-date></dd></div>
+            <div><dt>Tenure</dt><dd>@(person.TenureYears is { } t ? $"{t:0.#} years" : "—")</dd></div>
+            <div><dt>Age</dt><dd>@(person.AgeYears is { } a ? $"{a:N0}" : "—")</dd></div>
+            <div>
+                <dt>Appraisals</dt>
+                <dd>
+                    @if (recentRatings.Count == 0)
+                    {
+                        <span class="ms-table__recessive">Nothing recorded</span>
+                    }
+                    else
+                    {
+                        @foreach (var rating in recentRatings)
+                        {
+                            <span class="ms-rating" title="@rating.RatingYear@(rating.RatingRole is null ? "" : " · " + rating.RatingRole)">
+                                <span class="ms-micro">@rating.RatingYear</span>
+                                <ms-code>@(rating.RatingCode ?? "—")</ms-code>
+                            </span>
+                        }
+                    }
+                </dd>
+            </div>
+            <div>
+                <dt>Chief</dt>
+                <dd>@(person.PermChiefInd ? "Holds a chief position" : "No")</dd>
+            </div>
+        </dl>
+    </div>
+</section>
+
+@* ---- the tiles, whatever the metric definitions happen to be -------------------- *@
+@if (Model.Profile.Tiles.Count > 0)
+{
+    <div class="ms-tiles">
+        @foreach (var tile in Model.Profile.Tiles.OrderBy(t => t.SortOrder))
+        {
+            <div class="ms-tile" title="@tile.Description">
+                <div class="ms-tile__label">@tile.Name</div>
+                <div class="ms-tile__value">
+                    @(tile.TextValue ?? (tile.NumValue is { } n ? n.ToString("0.##") : "—"))
+                </div>
+                @if (tile.AsOfDate is not null)
+                {
+                    <div class="ms-tile__foot ms-micro">as at <as-of-date value="@tile.AsOfDate"></as-of-date></div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@* ---- the ladder. This is the reason the screen exists. ------------------------- *@
+<section class="ms-card ms-card--feature">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">Readiness</h2>
+        @if (attainment is not null)
+        {
+            <span class="ms-topbar__spacer"></span>
+            <span class="ms-micro">
+                @attainment.AttainmentPct.ToString("0.#")% of the weighted requirements met
+            </span>
+        }
+    </div>
+    <div class="ms-card__body">
+        @if (Model.CycleId is null)
+        {
+            <p class="ms-sentence ms-sentence--muted">
+                A ladder is measured against one cycle's readiness levels, so it can only be
+                drawn for a named cycle. Open this person from inside a cycle to see it.
+            </p>
+        }
+        else if (Model.Profile.Ladder.Count == 0)
+        {
+            <p class="ms-sentence ms-sentence--muted">
+                This cycle has no readiness levels set, so there is nothing to measure
+                against yet.
+            </p>
+        }
+        else
+        {
+            @if (attainment is { MustOutstanding: > 0 })
+            {
+                <p class="ms-sentence ms-sentence--warn">
+                    @attainment.MustOutstanding must @(attainment.MustOutstanding == 1 ? "requirement is" : "requirements are")
+                    still outstanding. A must not met disqualifies every level, whatever the
+                    percentage reads.
+                </p>
+            }
+
+            <div class="ms-ladder">
+                @foreach (var rung in Model.Profile.Ladder.OrderByDescending(l => l.SortOrder))
+                {
+                    <div class="ms-ladder__rung @(rung.IsHeld ? "is-held" : "") @(rung.MustOutstanding > 0 ? "is-blocked" : "")">
+                        <div class="ms-ladder__level">
+                            <ms-code>@rung.LevelCode</ms-code>
+                            <div class="ms-micro">@rung.Name</div>
+                        </div>
+
+                        <div class="ms-ladder__ask">
+                            @if (rung.ThresholdPct is { } threshold)
+                            {
+                                <span class="ms-micro">Asks for</span>
+                                <span class="ms-num">@threshold.ToString("0.#")%</span>
+                            }
+                            else
+                            {
+                                <span class="ms-table__recessive">No threshold set</span>
+                            }
+                        </div>
+
+                        <ms-bar value="@((double)rung.AttainmentPct)"
+                                tick="@(rung.ThresholdPct is { } th ? (double?)th : null)"
+                                label="@($"{rung.AttainmentPct:0.#}% met against a threshold of {(rung.ThresholdPct is { } t2 ? $"{t2:0.#}%" : "none")}")"></ms-bar>
+
+                        <div class="ms-ladder__state">
+                            <state-chip role="@(rung.MustOutstanding > 0 ? "danger" : rung.IsHeld ? "success" : "neutral")"
+                                        label="@rung.StateWord"></state-chip>
+                            @if (rung.ShortByPct is { } shortBy && rung.MustOutstanding == 0)
+                            {
+                                <div class="ms-micro">@shortBy.ToString("0.#") points short</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (Model.Profile.History.Count > 0)
+            {
+                <div class="ms-ladder__history">
+                    <span class="ms-micro">Where they stood before</span>
+                    @foreach (var year in Model.Profile.History.OrderByDescending(h => h.HistoryYear))
+                    {
+                        <span class="ms-rating" title="@year.CycleName">
+                            <span class="ms-micro">@year.HistoryYear</span>
+                            <ms-code>@(year.LevelCode ?? "none")</ms-code>
+                        </span>
+                    }
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@* ---- what each level asks, and the reason on every single requirement ---------- *@
+@if (byLevel.Count > 0)
+{
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <h2 class="ms-card__title">What is asked, and what was met</h2>
+            <span class="ms-topbar__spacer"></span>
+            @if (attainment is not null)
+            {
+                <span class="ms-micro">@attainment.ItemsOutstanding outstanding of @attainment.InScope</span>
+            }
+        </div>
+        <div class="ms-card__body">
+            @foreach (var group in byLevel)
+            {
+                var met = group.Count(r => r.Met);
+
+                <div class="ms-reqgroup">
+                    <div class="ms-reqgroup__head">
+                        <strong>@group.Key.FrameworkName</strong>
+                        <span class="ms-micro">level @group.Key.LevelNo</span>
+                        <span class="ms-topbar__spacer"></span>
+                        <share-text count="@met" total="@group.Count()" with-count="true"></share-text>
+                    </div>
+
+                    @foreach (var requirement in group.OrderBy(r => r.Met).ThenBy(r => r.EventCode))
+                    {
+                        <div class="ms-ladder__req @(requirement.Met ? "is-met" : "") @(requirement.IsMust ? "is-must" : "")">
+                            <ms-code>@requirement.EventCode</ms-code>
+                            <span class="ms-ladder__name">
+                                @requirement.EventName
+                                @* Two requirements can share a name across frameworks, so the
+                                   item code is printed beside it rather than left to guesswork. *@
+                                @if (!string.Equals(requirement.ItemCode, requirement.EventCode, StringComparison.Ordinal))
+                                {
+                                    <ms-code class="ms-micro">@requirement.ItemCode</ms-code>
+                                }
+                            </span>
+
+                            @if (requirement.IsMust)
+                            {
+                                <span class="ms-tag" title="Not meeting this disqualifies the person outright">Must</span>
+                            }
+
+                            <span class="ms-micro" title="How much this requirement is worth">
+                                weight @requirement.Weight.ToString("0.##")
+                            </span>
+
+                            @* The reason is never optional: met or not, it says why. *@
+                            <span class="ms-ladder__why">
+                                @requirement.Why
+                                @if (requirement.ViaCode is not null
+                                     && !string.Equals(requirement.ViaCode, requirement.ItemCode, StringComparison.Ordinal))
+                                {
+                                    <span class="ms-micro">via <ms-code>@requirement.ViaCode</ms-code></span>
+                                }
+                            </span>
+
+                            @if (requirement.RuleShort is not null)
+                            {
+                                <span class="ms-micro ms-ladder__rule" title="The rule this requirement is read against">
+                                    @requirement.RuleShort
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@* ---- appraisals over time ------------------------------------------------------ *@
+@if (Model.Profile.Performance.Count > 0)
+{
+    <section class="ms-card">
+        <div class="ms-card__head"><h2 class="ms-card__title">Performance</h2></div>
+        <div class="ms-card__body">
+            @foreach (var rating in Model.Profile.Performance.OrderByDescending(r => r.RatingYear))
+            {
+                <div class="ms-perfrow">
+                    <span class="ms-micro">@rating.RatingYear</span>
+                    <ms-code>@(rating.RatingCode ?? "—")</ms-code>
+                    @if (rating.RatingValue is { } value)
+                    {
+                        @* The scale is whatever the appraisal metric records; the bar draws
+                           the value the server gave and says so in the label. *@
+                        <ms-bar value="@((double)value)" small="true"
+                                label="@($"{rating.RatingYear}: {value:0.##}")"></ms-bar>
+                        <span class="ms-num">@value.ToString("0.##")</span>
+                    }
+                    @if (rating.RatingRole is not null)
+                    {
+                        <span class="ms-micro">@rating.RatingRole</span>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@* ---- assignments, permanent and acting ----------------------------------------- *@
+<section class="ms-card">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">Assignments</h2>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">@Model.Profile.Coverage.Count.ToString("N0") recorded</span>
+    </div>
+    <div class="ms-card__body">
+        @if (Model.Profile.Coverage.Count == 0)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("No assignments recorded",
+                 "Nothing has been loaded for this person from the assignment source.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            @foreach (var (caption, rows) in new[]
+            {
+                ("Permanent", (IReadOnlyList<ProfileCoverage>)permanent),
+                ("Acting and temporary", (IReadOnlyList<ProfileCoverage>)temporary)
+            })
+            {
+                if (rows.Count == 0) { continue; }
+
+                <h3 class="ms-micro">@caption</h3>
+                <div class="ms-table-wrap">
+                    <table class="ms-table">
+                        <thead>
+                            <tr>
+                                <th class="is-sticky-col">Department</th>
+                                <th>Position</th>
+                                <th>Suffix</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="ms-table__num">Days</th>
+                                <th class="ms-table__num">Months</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in rows)
+                        {
+                            <tr>
+                                <td class="is-sticky-col">@(row.Department ?? row.OrgCode ?? "—")</td>
+                                <td><ms-code>@(row.PositionCode ?? "—")</ms-code></td>
+                                <td><ms-code>@(row.PositionSuffix ?? "—")</ms-code></td>
+                                <td><as-of-date value="@row.StartDate"></as-of-date></td>
+                                <td>
+                                    @if (row.EndDate is null)
+                                    {
+                                        <span class="ms-tag">still running</span>
+                                    }
+                                    else
+                                    {
+                                        <as-of-date value="@row.EndDate"></as-of-date>
+                                    }
+                                </td>
+                                <td class="ms-table__num">@(row.Days is { } d ? d.ToString("N0") : "—")</td>
+                                <td class="ms-table__num">@(row.Months is { } m ? m.ToString("0.#") : "—")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@* ---- the evidence record: courses, assessments, everything with a kind ---------- *@
+<section class="ms-card">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">Record</h2>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">
+            @Model.Profile.Records.Count(r => !r.IsExpired).ToString("N0") current
+            @if (Model.Profile.Records.Any(r => r.IsExpired))
+            {
+                <text>· @Model.Profile.Records.Count(r => r.IsExpired).ToString("N0") expired</text>
+            }
+        </span>
+    </div>
+    <div class="ms-card__body">
+        @if (Model.Profile.Records.Count == 0)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Nothing on the record",
+                 "No course, assessment or qualification has been loaded for this person.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            @foreach (var kind in Model.Profile.Records.GroupBy(r => (r.KindCode, r.KindName)).OrderBy(g => g.Key.KindName))
+            {
+                <h3 class="ms-micro">@kind.Key.KindName</h3>
+                <div class="ms-table-wrap">
+                    <table class="ms-table">
+                        <thead>
+                            <tr>
+                                <th class="is-sticky-col">Item</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th class="ms-table__num">Score</th>
+                                <th>Completed</th>
+                                <th>Expires</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var record in kind.OrderByDescending(r => r.CompletedOn))
+                        {
+                            <tr class="@(record.IsExpired ? "is-muted" : "")">
+                                <td class="is-sticky-col"><ms-code>@record.ItemCode</ms-code></td>
+                                <td>@(record.ItemName ?? "—")</td>
+                                <td>
+                                    @(record.Status ?? "—")
+                                    @if (record.IsExpired)
+                                    {
+                                        <state-chip role="warning" label="Expired"></state-chip>
+                                    }
+                                </td>
+                                <td class="ms-table__num">
+                                    @if (record.Score is { } score)
+                                    {
+                                        @score.ToString("0.##")
+                                        @if (record.MaxScore is { } max)
+                                        {
+                                            <span class="ms-micro">of @max.ToString("0.##")</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="ms-table__recessive">—</span>
+                                    }
+                                </td>
+                                <td><as-of-date value="@record.CompletedOn"></as-of-date></td>
+                                <td><as-of-date value="@record.ExpiresOn"></as-of-date></td>
+                                <td class="ms-micro">@(record.Source ?? "—")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@* ---- every decision ever taken about this person, with the cycle it was taken in - *@
+@if (Model.Profile.Decisions.Count > 0)
+{
+    <section class="ms-card">
+        <div class="ms-card__head"><h2 class="ms-card__title">Decisions</h2></div>
+        <div class="ms-card__body">
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr>
+                            <th class="is-sticky-col">Cycle</th>
+                            <th>Stage</th>
+                            <th>Decision</th>
+                            <th>Reason</th>
+                            <th>By</th>
+                            <th>When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var decision in Model.Profile.Decisions)
+                    {
+                        <tr>
+                            <td class="is-sticky-col">@(decision.CycleName ?? decision.CycleId.ToString())</td>
+                            <td>@(decision.StageName ?? "—")</td>
+                            <td>
+                                <state-chip role="@decision.SemanticRole" label="@decision.DecisionName"></state-chip>
+                                @if (decision.IsTest)
+                                {
+                                    @* Stamped in test mode, and it never stops saying so. *@
+                                    <span class="ms-tag ms-tag--test">TEST</span>
+                                }
+                            </td>
+                            <td>@(decision.Reason ?? "—")</td>
+                            <td class="ms-code">@decision.ActorLogin</td>
+                            <td class="ms-micro">@decision.DecidedOnUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+}

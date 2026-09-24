@@ -1,0 +1,81 @@
+@model PoolPreview
+
+@* Distinguish "nobody qualifies" from "the question could not be asked". The second is
+   never rendered as a zero. *@
+@if (Model is null)
+{
+    <div class="ms-card__body"><p class="ms-table__recessive">No pool has been resolved yet.</p></div>
+}
+else if (Model.CouldNotBeAsked)
+{
+    <div class="ms-card__body">
+        <div class="ms-refusal" role="alert">
+            <div class="ms-refusal__title">This pool could not be resolved</div>
+            <p>@Model.Problem</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="ms-card__head">
+        <h3 class="ms-card__title">Reach</h3>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-num ms-pool__total">@Model.Totals.PoolCount?.ToString("N0")</span>
+        <span class="ms-micro">people</span>
+    </div>
+
+    <div class="ms-card__body">
+        @* The rule read back as sentences, with the reach of each set beside it. *@
+        @foreach (var set in Model.Sets)
+        {
+            <div class="ms-sentence ms-sentence--muted">
+                @set.Sentence
+                <span class="ms-set__reach">@(set.Reach?.ToString("N0") ?? "—")</span>
+            </div>
+        }
+
+        @if (Model.ResolvedToNobody)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Nobody in the roster meets these criteria",
+                 "Widen a set, or check the values. This is different from the question failing — the question was asked and the answer was nobody.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            <h4 class="ms-micro">A sample of who that is</h4>
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr>
+                            <th class="is-sticky-col">Name</th>
+                            <th>Personnel No</th>
+                            <th>Organisation</th>
+                            <th>Job</th>
+                            <th>Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var person in Model.People)
+                    {
+                        <tr>
+                            <td class="is-sticky-col">@person.FullName</td>
+                            <td><ms-code>@person.PersonnelNo</ms-code></td>
+                            <td>@person.OrgName</td>
+                            <td>@person.JobTitle</td>
+                            <td><ms-code>@person.GradeCode</ms-code></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="ms-table-foot">
+                <span>
+                    <span class="ms-num">@Model.People.Count.ToString("N0")</span> shown of
+                    <span class="ms-num">@Model.Totals.TotalRows?.ToString("N0")</span>
+                </span>
+            </div>
+        }
+    </div>
+}

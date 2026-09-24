@@ -1,0 +1,32 @@
+@model StageTabsModel
+
+@* The process label sits above its stages, not on every tab. Each tab carries its
+   window and its state, so a locked stage explains itself before it is clicked. *@
+<div class="ms-stagetabs">
+    @foreach (var process in Model.ByProcess)
+    {
+        <div class="ms-stagetabs__process">
+            <div class="ms-micro">@process.Key.Name</div>
+            <div class="ms-tabs">
+                @foreach (var tab in process.OrderBy(t => t.SortOrder))
+                {
+                    var state = tab.StageState switch
+                    {
+                        "OPEN" => "open now",
+                        "CLOSED" => "closed",
+                        "FUTURE" => "not open yet",
+                        _ => "no window"
+                    };
+
+                    <a class="ms-tabs__tab @(tab.IsCurrent ? "is-current" : "")"
+                       asp-area="Selection" asp-controller="@tab.RouteKey" asp-action="Index"
+                       asp-route-cycleStageId="@tab.CycleStageId"
+                       title="@AsOf.Window(tab.StartDate, tab.EndDate) · @state">
+                        @tab.StageName
+                        <span class="ms-micro">@state</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+</div>

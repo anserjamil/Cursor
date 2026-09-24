@@ -1,0 +1,7 @@
+@model IUserContext
+
+@* Two people looking at the same cycle legitimately see different people in it. *@
+<span class="ms-pill" title="Every list you see is filtered to these organisations, including the drilldown behind every count">
+    <span class="ms-num">@Model.OrgScopeCount.ToString("N0")</span>
+    @(Model.OrgScopeCount == 1 ? "organisation" : "organisations")
+</span>

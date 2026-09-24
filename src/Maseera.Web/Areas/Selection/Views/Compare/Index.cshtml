@@ -1,0 +1,80 @@
+@model CompareViewModel
+@{
+    ViewData["Title"] = "Compare";
+}
+
+<div class="ms-hero">
+    <div class="ms-hero__eyebrow">Compare</div>
+    <div class="ms-hero__line">Up to @Model.Max candidates, side by side.</div>
+</div>
+
+@if (Model.Problem is not null)
+{
+    <div class="ms-refusal" role="alert">
+        <div class="ms-refusal__title">That comparison could not be made</div>
+        <p>@Model.Problem</p>
+    </div>
+}
+
+@if (Model.People.Count == 0)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("Nobody to compare yet",
+         "Pick people on a stage screen and choose Compare, or open a profile and add them from there.",
+         "Back to the cycles", Url.Action("Index", "Cycles")))
+}
+else
+{
+    <div class="ms-table-wrap">
+        <table class="ms-table ms-compare">
+            <thead>
+                <tr>
+                    <th class="is-sticky-col">Fact</th>
+                    @foreach (var person in Model.People)
+                    {
+                        <th>
+                            <a asp-controller="Profile" asp-action="Index"
+                               asp-route-personnelNo="@person.PersonnelNo" asp-route-cycleId="@Model.CycleId">
+                                @person.FullName
+                            </a>
+                            <div class="ms-micro"><ms-code>@person.PersonnelNo</ms-code></div>
+                            <a class="ms-btn ms-btn--sm ms-btn--ghost"
+                               asp-action="Index" asp-route-cycleId="@Model.CycleId"
+                               asp-route-personnelNo="@Model.People.Where(p => p.PersonnelNo != person.PersonnelNo).Select(p => p.PersonnelNo).ToArray()">
+                                Remove
+                            </a>
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    var rows = new (string Label, Func<CompareRow, string?> Value)[]
+                    {
+                        ("Organisation",           p => p.OrgName),
+                        ("Job",                    p => p.JobTitle),
+                        ("Grade",                  p => p.GradeCode),
+                        ("Management level",       p => p.ManagementLevelCode),
+                        ("Job suffix",             p => p.PermJobSuffix),
+                        ("Hired",                  p => AsOf.Date(p.HireDate)),
+                        ("Last promoted",          p => AsOf.Date(p.PromotionDate)),
+                        ("Three-year performance", p => p.PerformanceAvg3?.ToString("0.0")),
+                        ("Coverage days",          p => p.DaysCovered?.ToString("N0")),
+                        ("Courses completed",      p => p.CoursesCompleted?.ToString("N0")),
+                        ("Latest decision",        p => p.LatestDecision),
+                    };
+                }
+                @foreach (var (label, value) in rows)
+                {
+                    <tr>
+                        <td class="is-sticky-col ms-micro">@label</td>
+                        @foreach (var person in Model.People)
+                        {
+                            <td>@(value(person) ?? "—")</td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

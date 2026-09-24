@@ -1,0 +1,28 @@
+@model IReadOnlyList<SuggestionRow>
+
+@* Advisory only. This panel never writes a decision, and it says so. *@
+<div class="ms-suggestions">
+    @if (Model.Count == 0)
+    {
+        <p class="ms-table__recessive">Everybody in this stage has already been decided on.</p>
+    }
+    else
+    {
+        <div class="ms-sentence ms-sentence--muted">@Model[0].Advisory</div>
+
+        @foreach (var suggestion in Model)
+        {
+            <div class="ms-row">
+                <div>
+                    <strong>@suggestion.FullName</strong>
+                    <div class="ms-micro"><ms-code>@suggestion.PersonnelNo</ms-code> · @suggestion.JobTitle</div>
+                    @* The reason, not just the rank. *@
+                    <div class="ms-table__recessive">@suggestion.Because</div>
+                </div>
+                <span class="ms-topbar__spacer"></span>
+                <span class="ms-num" title="A score assembled from the signals listed">@suggestion.Score.ToString("0")</span>
+                <span class="ms-tag">suggests @suggestion.SuggestedDecision.ToLowerInvariant()</span>
+            </div>
+        }
+    }
+</div>

@@ -1,0 +1,118 @@
+@model WizardViewModel
+@{
+    ViewData["Title"] = "Review and open";
+    var cycle = Model.Detail.Cycle!;
+    var blocking = Model.Todos.Where(t => t.Severity == "BLOCK").ToList();
+}
+
+@await Html.PartialAsync("_Wizard", Model)
+
+<div class="ms-split">
+    <section class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">The design, read back</h3></div>
+        <div class="ms-card__body">
+            <div class="ms-sentence">
+                <strong>@cycle.Name</strong> (<span class="ms-code">@cycle.CycleCode</span>)
+                runs @AsOf.Window(cycle.StartDate, cycle.EndDate).
+                It belongs to @(cycle.OwnerName ?? cycle.OwnerLogin)@(cycle.DelegateLogin is not null ? $", with {cycle.DelegateName ?? cycle.DelegateLogin} as delegate" : "").
+            </div>
+
+            <div class="ms-sentence ms-sentence--muted">
+                @if (Model.Detail.CriterionSets.Count == 0)
+                {
+                    @:No criteria are set, so the pool would be the whole roster.
+                }
+                else
+                {
+                    @:The eligible pool is described by @Model.Detail.CriterionSets.Count set@(Model.Detail.CriterionSets.Count == 1 ? "" : "s") over @Model.Detail.Criteria.Count criteri@(Model.Detail.Criteria.Count == 1 ? "on" : "a").
+                }
+            </div>
+
+            <div class="ms-sentence ms-sentence--muted">
+                @if (Model.Detail.Frameworks.Count == 0)
+                {
+                    @:No development framework is assigned, so nothing is being asked for.
+                }
+                else
+                {
+                    @:It measures against @string.Join(", ", Model.Detail.Frameworks.Select(f => f.Name)).
+                }
+            </div>
+
+            <div class="ms-sentence ms-sentence--muted">
+                @if (Model.Detail.Levels.Count == 0)
+                {
+                    @:No readiness levels are set.
+                }
+                else
+                {
+                    @:Readiness runs from @Model.Detail.Levels.OrderBy(l => l.SortOrder).First().Name to @Model.Detail.Levels.OrderBy(l => l.SortOrder).Last().Name, over @Model.Detail.Levels.Count levels.
+                }
+            </div>
+
+            <div class="ms-sentence ms-sentence--muted">
+                @if (Model.Detail.Processes.Count == 0)
+                {
+                    @:No process is set up, so this cycle has nothing to run.
+                }
+                else
+                {
+                    @:It runs @string.Join(", ", Model.Detail.Processes.Select(p => p.Name)), over @Model.Detail.Stages.Count dated stage@(Model.Detail.Stages.Count == 1 ? "" : "s").
+                }
+            </div>
+        </div>
+    </section>
+
+    <aside class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">
+                @if (Model.Summary.IsReadyToOpen)
+                {
+                    @:Ready to open
+                }
+                else
+                {
+                    @:@blocking.Count thing@(blocking.Count == 1 ? " is" : "s are") unfinished
+                }
+            </h3>
+        </div>
+
+        <div class="ms-card__body">
+            @if (blocking.Count == 0)
+            {
+                <p class="ms-hero__sub">
+                    Opening resolves the pool, writes it as a snapshot and starts the first
+                    stage. The draft becomes active permanently, and the snapshot is never
+                    recomputed — a review taken in March still shows March's figures.
+                </p>
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="Open"
+                          data-confirm="Open @cycle.Name? The pool is written as a snapshot and the draft becomes active permanently.">
+                        <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                        <button type="submit" class="ms-btn ms-btn--primary">Open the cycle</button>
+                    </form>
+                }
+            }
+            else
+            {
+                @* Each to-do carries the button that jumps to the step that fixes it. *@
+                @foreach (var todo in blocking)
+                {
+                    <div class="ms-row ms-row--warning">
+                        <div>@todo.Sentence</div>
+                        <span class="ms-topbar__spacer"></span>
+                        @if (todo.StepNo is { } step)
+                        {
+                            <a class="ms-btn ms-btn--sm" asp-action="Step"
+                               asp-route-cycleId="@cycle.CycleId" asp-route-step="@step">
+                                Fix on @todo.StepCaption
+                            </a>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </aside>
+</div>

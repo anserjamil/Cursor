@@ -1,0 +1,171 @@
+@model IdpViewModel
+@{
+    var board = Model.Board;
+    var summary = board?.Summary;
+}
+
+@if (summary is null)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("Nothing to plan yet", "This stage has no cohort in the organisations you can see.", (string?)null, (string?)null))
+    return;
+}
+
+<div class="ms-idpboard">
+    <div class="ms-tiles">
+        <div class="ms-tile">
+            <div class="ms-tile__value">@summary.NoPlan.ToString("N0")</div>
+            <div class="ms-tile__label">No plan yet</div>
+        </div>
+        <div class="ms-tile">
+            <div class="ms-tile__value">@summary.InProgress.ToString("N0")</div>
+            <div class="ms-tile__label">In progress</div>
+        </div>
+        <div class="ms-tile">
+            <div class="ms-tile__value">@summary.Complete.ToString("N0")</div>
+            <div class="ms-tile__label">Complete</div>
+            <div class="ms-tile__note">Every open requirement has a booking, a date or coverage days.</div>
+        </div>
+        <div class="ms-tile">
+            <div class="ms-tile__value">@summary.Approved.ToString("N0")</div>
+            <div class="ms-tile__label">Approved</div>
+        </div>
+        <div class="ms-tile">
+            <div class="ms-tile__value">@(summary.DaysLeft?.ToString("N0") ?? "—")</div>
+            <div class="ms-tile__label">Days left in the window</div>
+            <div class="ms-tile__note">@AsOf.Window(summary.WindowStart, summary.WindowEnd)</div>
+        </div>
+    </div>
+
+    @if (Model.CanWrite)
+    {
+        <div class="ms-toolbar">
+            <button type="button" class="ms-btn ms-btn--primary" data-suggest="all">
+                Suggest for every remaining plan
+            </button>
+
+            @* The flag filter appears only when there is something to filter. *@
+            @if (Model.ShowApproveAll)
+            {
+                <button type="button" class="ms-btn" data-approve="ready">
+                    Approve the @summary.ReadyToApprove ready
+                </button>
+            }
+            @if (Model.ShowOverdueFilter)
+            {
+                <span class="ms-state ms-state--warning">@summary.Overdue past their target date</span>
+            }
+
+            <span class="ms-topbar__spacer"></span>
+            <a class="ms-btn ms-btn--sm" asp-action="Export"
+               asp-route-cycleStageId="@Model.State.CycleStageId" asp-route-format="csv">Export CSV</a>
+            <a class="ms-btn ms-btn--sm" asp-action="Export"
+               asp-route-cycleStageId="@Model.State.CycleStageId" asp-route-format="xlsx">Export XLSX</a>
+        </div>
+    }
+
+    <div class="ms-suggest" data-suggest-panel hidden>
+        <h4 class="ms-micro">What Suggest did</h4>
+        <ul class="ms-suggest__list" data-suggest-output></ul>
+    </div>
+
+    <div class="ms-split">
+        <section class="ms-card">
+            <div class="ms-card__head"><h3 class="ms-card__title">Needs attention</h3></div>
+            <div class="ms-card__body">
+                @if (board!.NeedsAttention.Count == 0)
+                {
+                    <p class="ms-table__recessive">Every plan in your organisations is complete or approved.</p>
+                }
+
+                @foreach (var person in board.NeedsAttention)
+                {
+                    <div class="ms-row @(person.IsOverdue ? "ms-row--warning" : "")"
+                         data-person-row="@person.PersonnelNo"
+                         data-plan-state="@person.PlanState"
+                         data-plan-ready="@((person.PlanState == "COMPLETE").ToString().ToLowerInvariant())">
+                        <div>
+                            <a asp-action="Index" asp-route-cycleStageId="@Model.State.CycleStageId"
+                               asp-route-tab="person" asp-route-personnelNo="@person.PersonnelNo">
+                                <strong>@person.FullName</strong>
+                            </a>
+                            <div class="ms-micro"><ms-code>@person.PersonnelNo</ms-code> · @person.OrgName</div>
+                            <div class="ms-table__recessive" data-plan-state>@person.Reason</div>
+                        </div>
+
+                        <ms-bar value="@((double)person.ProgressPct)" small="true"
+                                label="@person.PlannedCount of @person.OpenCount planned"></ms-bar>
+
+                        <div class="ms-micro">
+                            target <as-of-date value="@person.TargetDate"></as-of-date>
+                        </div>
+
+                        @if (Model.CanWrite)
+                        {
+                            <button type="button" class="ms-btn ms-btn--sm" data-suggest="@person.PersonnelNo">Suggest</button>
+                        }
+                    </div>
+                }
+            </div>
+        </section>
+
+        <aside>
+            <section class="ms-card">
+                <div class="ms-card__head"><h3 class="ms-card__title">By readiness level</h3></div>
+                <div class="ms-card__body">
+                    @foreach (var level in board.ByLevel)
+                    {
+                        <div class="ms-row">
+                            <div><ms-code>@level.LevelCode</ms-code> @level.Name</div>
+                            <span class="ms-topbar__spacer"></span>
+                            <span class="ms-num">@level.People.ToString("N0")</span>
+                            <span class="ms-micro">@level.OpenItems.ToString("N0") open</span>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="ms-card">
+                <div class="ms-card__head"><h3 class="ms-card__title">By event</h3></div>
+                <div class="ms-card__body">
+                    @foreach (var ev in board.ByEvent.Take(12))
+                    {
+                        <div class="ms-row">
+                            <div>
+                                <ms-code>@ev.EventCode</ms-code> @ev.EventName
+                                <div class="ms-micro">
+                                    @ev.Booked booked · @ev.Pencilled pencilled · @ev.SessionCount session@(ev.SessionCount == 1 ? "" : "s")
+                                </div>
+                            </div>
+                            <span class="ms-topbar__spacer"></span>
+                            <span class="ms-num">@ev.PeopleOpen.ToString("N0")</span>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            @if (Model.Risk.Count > 0)
+            {
+                <section class="ms-card">
+                    <div class="ms-card__head">
+                        <h3 class="ms-card__title">Days owed against successors available</h3>
+                    </div>
+                    <div class="ms-card__body">
+                        @foreach (var risk in Model.Risk)
+                        {
+                            <div class="ms-row ms-row--@risk.BandRole">
+                                <div>
+                                    @risk.OrgName
+                                    <div class="ms-micro">@risk.PeopleOwing owing · @risk.SuccessorsAvailable available</div>
+                                </div>
+                                <span class="ms-topbar__spacer"></span>
+                                <span class="ms-num">@risk.DaysOwed.ToString("N0")</span>
+                                <state-chip role="@risk.BandRole" label="@risk.Band"></state-chip>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+        </aside>
+    </div>
+</div>

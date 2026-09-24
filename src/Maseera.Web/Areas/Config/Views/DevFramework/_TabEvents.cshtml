@@ -1,0 +1,458 @@
+@model DevFrameworkViewModel
+@{
+    var detail = Model.Rule?.Event;
+}
+
+<div class="ms-split">
+    <section class="ms-split__main">
+        <div class="ms-toolbar">
+            <form method="get" class="ms-toolbar__search">
+                <input type="hidden" name="tab" value="events" />
+                <input type="search" name="q" value="@Model.Search" class="ms-input"
+                       placeholder="Search by code, name or item" aria-label="Search events" />
+                <select name="part" class="ms-select" aria-label="Part">
+                    <option value="">Every part</option>
+                    @foreach (var part in Model.Parts)
+                    {
+                        <option value="@part.ValueCode" selected="@(Model.PartCode == part.ValueCode)">@part.Name</option>
+                    }
+                </select>
+                <select name="type" class="ms-select" aria-label="Type">
+                    <option value="">Every type</option>
+                    @foreach (var type in Model.EventTypes)
+                    {
+                        <option value="@type.ValueCode" selected="@(Model.TypeCode == type.ValueCode)">@type.Name</option>
+                    }
+                </select>
+                <button type="submit" class="ms-btn">Apply</button>
+            </form>
+
+            <span class="ms-topbar__spacer"></span>
+
+            <a class="ms-btn ms-btn--sm" asp-action="Download" asp-route-q="@Model.Search">CSV</a>
+            @if (Model.CanWrite)
+            {
+                <button type="button" class="ms-btn ms-btn--primary" data-modal-open="ms-modal"
+                        data-panel="ms-new-event">New event</button>
+            }
+        </div>
+
+        @if (Model.Events.Count == 0)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("No events match",
+                 "Clear the filters, or add the first event. An event without a rule falls back to its kind's default.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            <div class="ms-table-wrap" data-table>
+                <table class="ms-table">
+                    <thead>
+                        <tr>
+                            <th class="is-sticky-col">Code</th>
+                            <th>Name</th>
+                            <th>Kind</th>
+                            <th>Part</th>
+                            <th>Reads</th>
+                            <th>The rule</th>
+                            <th class="ms-table__num">Equivalents</th>
+                            <th class="ms-table__num">In frameworks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var e in Model.Events)
+                    {
+                        <tr class="@(Model.SelectedId == e.DevEventId ? "is-selected" : "") @(e.IsActive ? "" : "is-muted")">
+                            <td class="is-sticky-col">
+                                <a asp-action="Index" asp-route-tab="events" asp-route-q="@Model.Search"
+                                   asp-route-part="@Model.PartCode" asp-route-type="@Model.TypeCode"
+                                   asp-route-id="@e.DevEventId"><ms-code>@e.EventCode</ms-code></a>
+                                @if (!e.IsActive)
+                                {
+                                    <span class="ms-tag">Retired</span>
+                                }
+                            </td>
+                            <td>@e.Name</td>
+                            <td>
+                                @e.KindName
+                                <span class="ms-micro" title="FLAG asks whether any record passes; SUM adds a measure up to a floor">@e.EvalModeCode</span>
+                            </td>
+                            <td>@(e.PartName ?? "—")</td>
+                            <td>
+                                <ms-code>@(e.ItemCode ?? "—")</ms-code>
+                                @if (!e.SourceIsMapped)
+                                {
+                                    @* An unmapped source is never a silent zero: it means every
+                                       requirement naming this kind can never be met. *@
+                                    <state-chip role="danger" label="No table mapped"></state-chip>
+                                }
+                            </td>
+                            @* The sentence comes from sel.fn_EventRuleShort, so a list and its
+                               rule cannot drift apart. *@
+                            <td class="ms-rule">@(e.RuleShort ?? "Follows its kind's default")</td>
+                            <td class="ms-table__num">@e.EquivalentCount.ToString("N0")</td>
+                            <td class="ms-table__num">@e.FrameworkCount.ToString("N0")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    @* ---- the rule editor for the chosen event -------------------------------- *@
+    <aside class="ms-split__side ms-split__side--wide">
+        @if (detail is null)
+        {
+            <div class="ms-card">
+                <div class="ms-card__body">
+                    <p class="ms-sentence ms-sentence--muted">
+                        Choose an event to see where its completion is read from, and to change
+                        the rule that decides it.
+                    </p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="ms-card">
+                <div class="ms-card__head">
+                    <div>
+                        <ms-code>@detail.EventCode</ms-code>
+                        <h3 class="ms-card__title">@detail.Name</h3>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    @if (detail.FollowsKindDefault)
+                    {
+                        <span class="ms-tag" title="No rule of its own; it reads its kind's default">Kind default</span>
+                    }
+                </div>
+
+                <div class="ms-card__body">
+                    @if (detail.UnmappedWarning is not null)
+                    {
+                        <p class="ms-sentence ms-sentence--warn">@detail.UnmappedWarning</p>
+                    }
+
+                    @* Where completion comes from, named as a table and a column rather than
+                       described in the abstract. *@
+                    <dl class="ms-facts">
+                        <div><dt>Kind</dt><dd>@detail.KindName <span class="ms-micro">@detail.EvalModeCode</span></dd></div>
+                        <div>
+                            <dt>Table</dt>
+                            <dd>
+                                @if (detail.SourceIsMapped)
+                                {
+                                    <ms-code>@detail.AppSchema.@detail.AppTable</ms-code>
+                                }
+                                else
+                                {
+                                    <state-chip role="danger" label="Nothing mapped"></state-chip>
+                                }
+                            </dd>
+                        </div>
+                        <div><dt>Item column</dt><dd><ms-code>@(detail.ItemColumn ?? "—")</ms-code></dd></div>
+                        <div><dt>Status column</dt><dd><ms-code>@(detail.StatusColumn ?? "—")</ms-code></dd></div>
+                        <div><dt>Measure column</dt><dd><ms-code>@(detail.MeasureColumn ?? "—")</ms-code></dd></div>
+                        <div><dt>Item code</dt><dd><ms-code>@(detail.ItemCode ?? "—")</ms-code></dd></div>
+                        @if (detail.EvalModeCode == "SUM")
+                        {
+                            <div><dt>Floor</dt><dd><span class="ms-num">@(detail.SumFloor?.ToString("0.##") ?? "—")</span></dd></div>
+                        }
+                        else
+                        {
+                            <div><dt>Passes when</dt><dd><ms-code>@(detail.PassValue ?? "—")</ms-code></dd></div>
+                        }
+                        <div><dt>Valid for</dt><dd>@(detail.ValidityMonths is { } m ? $"{m} months" : "Never expires")</dd></div>
+                    </dl>
+
+                    <h4 class="ms-micro">The rule, as it reads</h4>
+                    <p class="ms-rule ms-rule--full">@(detail.RuleText ?? detail.DefaultRuleText ?? "Nothing set.")</p>
+
+                    @if (detail.FollowsKindDefault && detail.DefaultRuleText is not null)
+                    {
+                        <p class="ms-sentence ms-sentence--muted">
+                            This event has no rule of its own, so it reads the default for
+                            @detail.KindName. Add a set below to give it one.
+                        </p>
+                    }
+                </div>
+            </div>
+
+            @* ---- the sets, each evaluated independently then folded left to right - *@
+            <div class="ms-card">
+                <div class="ms-card__head">
+                    <h3 class="ms-card__title">Conditions</h3>
+                    <span class="ms-topbar__spacer"></span>
+                    @if (Model.CanWrite && !detail.FollowsKindDefault)
+                    {
+                        <form method="post" asp-action="RevertRule" class="ms-inline-form">
+                            <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                            <button type="submit" class="ms-btn ms-btn--sm"
+                                    title="Drop this event's own rule and read the kind's default again">
+                                Back to the default
+                            </button>
+                        </form>
+                    }
+                </div>
+
+                <div class="ms-card__body">
+                    @if (Model.Rule!.Sets.Count == 0)
+                    {
+                        <p class="ms-sentence ms-sentence--muted">
+                            No conditions. Every record of this item counts, subject only to the
+                            pass value above.
+                        </p>
+                    }
+
+                    @foreach (var set in Model.Rule.Sets.OrderBy(s => s.SortOrder))
+                    {
+                        var conditions = Model.Rule.Conditions
+                            .Where(c => c.SetId == set.SetId).OrderBy(c => c.SortOrder).ToList();
+
+                        <div class="ms-set">
+                            <div class="ms-set__head">
+                                @if (set.SetJoinName is not null && set.SortOrder > 1)
+                                {
+                                    @* The joins fold left to right, and the label says so
+                                       rather than leaving the reader to guess precedence. *@
+                                    <span class="ms-tag" title="Folded onto everything above it, left to right">@set.SetJoinName</span>
+                                }
+                                <strong>@set.SetLabel</strong>
+                                <span class="ms-micro">@set.SetModeName</span>
+                                <span class="ms-topbar__spacer"></span>
+                                @if (Model.CanWrite)
+                                {
+                                    <form method="post" asp-action="DeleteConditionSet" class="ms-inline-form">
+                                        <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                                        <input type="hidden" name="setId" value="@set.SetId" />
+                                        <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm">Remove</button>
+                                    </form>
+                                }
+                            </div>
+
+                            @foreach (var condition in conditions)
+                            {
+                                <div class="ms-set__row">
+                                    @* The phrase is built in SQL from the live values. It cannot
+                                       disagree with what the engine will actually run. *@
+                                    <span class="ms-rule">@(condition.Phrase ?? "Not set")</span>
+                                    @if (condition.FieldName is null)
+                                    {
+                                        <state-chip role="warning" label="No field: this condition can never pass"></state-chip>
+                                    }
+                                    @if (Model.CanWrite)
+                                    {
+                                        <span class="ms-topbar__spacer"></span>
+                                        <form method="post" asp-action="DeleteCondition" class="ms-inline-form">
+                                            <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                                            <input type="hidden" name="conditionId" value="@condition.ConditionId" />
+                                            <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm">Remove</button>
+                                        </form>
+                                    }
+                                </div>
+                            }
+
+                            @if (Model.CanWrite)
+                            {
+                                <form method="post" asp-action="SaveCondition" class="ms-set__add">
+                                    <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                                    <input type="hidden" name="setId" value="@set.SetId" />
+
+                                    @* The fields are the source's own columns, learned as they
+                                       are used, so the next author picks rather than spells. *@
+                                    <select name="fieldName" class="ms-select" aria-label="Field" required>
+                                        <option value="">Choose a field</option>
+                                        @foreach (var field in Model.Rule.Fields)
+                                        {
+                                            <option value="@field.ColumnName" data-operator="@field.ProposedOperator"
+                                                    data-type="@field.DataType">
+                                                @(field.Caption ?? field.ColumnName)
+                                                @(field.IsLearned ? " (learned)" : "")
+                                            </option>
+                                        }
+                                    </select>
+
+                                    <select name="operatorCode" class="ms-select" aria-label="Operator" required>
+                                        @foreach (var op in Model.Operators)
+                                        {
+                                            <option value="@op.OperatorCode" data-arity="@op.Arity"
+                                                    data-applies-to="@op.AppliesTo">@op.Name</option>
+                                        }
+                                    </select>
+
+                                    <input name="value1" class="ms-input" placeholder="Value" aria-label="Value" />
+                                    <input name="value2" class="ms-input ms-input--second" placeholder="and" aria-label="Second value" hidden />
+                                    <button type="submit" class="ms-btn ms-btn--sm">Add</button>
+                                </form>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.CanWrite)
+                    {
+                        <form method="post" asp-action="SaveConditionSet" class="ms-set__add">
+                            <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                            <select name="setModeCode" class="ms-select" aria-label="How the set is read">
+                                @foreach (var mode in Model.SetModes)
+                                {
+                                    <option value="@mode.ValueCode" title="@mode.Description">@mode.Name</option>
+                                }
+                            </select>
+                            <select name="setJoinCode" class="ms-select" aria-label="Joined to the sets above by">
+                                @foreach (var join in Model.SetJoins)
+                                {
+                                    <option value="@join.ValueCode" title="@join.Description">@join.Name</option>
+                                }
+                            </select>
+                            <button type="submit" class="ms-btn ms-btn--sm">Add a set</button>
+                        </form>
+                    }
+                </div>
+            </div>
+
+            @* ---- equivalences: another code that counts for this one -------------- *@
+            <div class="ms-card">
+                <div class="ms-card__head">
+                    <h3 class="ms-card__title">Counts for</h3>
+                    <span class="ms-topbar__spacer"></span>
+                    <span class="ms-micro">@Model.Rule.Equivalents.Count.ToString("N0")</span>
+                </div>
+                <div class="ms-card__body">
+                    <p class="ms-sentence ms-sentence--muted">
+                        An equivalent is read with its own rule and its own source, not this
+                        event's. That is what lets an older course code still count.
+                    </p>
+
+                    @foreach (var equivalent in Model.Rule.Equivalents)
+                    {
+                        <div class="ms-set__row">
+                            <ms-code>@equivalent.EquivalentItemCode</ms-code>
+                            <span>@(equivalent.EquivName ?? "—")</span>
+                            <span class="ms-micro">@(equivalent.EquivKind ?? "")</span>
+                            @if (equivalent.Note is not null)
+                            {
+                                <span class="ms-micro">@equivalent.Note</span>
+                            }
+                            @if (Model.CanWrite)
+                            {
+                                <span class="ms-topbar__spacer"></span>
+                                <form method="post" asp-action="RemoveEquivalence" class="ms-inline-form">
+                                    <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                                    <input type="hidden" name="devEquivalenceId" value="@equivalent.DevEquivalenceId" />
+                                    <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm">Remove</button>
+                                </form>
+                            }
+                        </div>
+                    }
+
+                    @if (Model.CanWrite && detail.ItemCode is not null)
+                    {
+                        <form method="post" asp-action="AddEquivalence" class="ms-set__add">
+                            <input type="hidden" name="devEventId" value="@detail.DevEventId" />
+                            <input type="hidden" name="mainItemCode" value="@detail.ItemCode" />
+                            <input name="equivalentItemCode" class="ms-input" placeholder="Item code" required
+                                   aria-label="The code that also counts" />
+                            <input name="note" class="ms-input" placeholder="Why" aria-label="Note" />
+                            <button type="submit" class="ms-btn ms-btn--sm">Add</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+    </aside>
+</div>
+
+@if (Model.CanWrite)
+{
+    @* The new-event panel. Every list on it is a reference table. *@
+    <template id="ms-new-event">
+        <form method="post" asp-action="SaveEvent" class="ms-form">
+            <h3>A new event</h3>
+
+            <label class="ms-field">
+                <span>Code</span>
+                <input name="eventCode" class="ms-input" required maxlength="40" />
+            </label>
+            <label class="ms-field">
+                <span>Name</span>
+                <input name="name" class="ms-input" required maxlength="200" />
+            </label>
+            <label class="ms-field">
+                <span>Description</span>
+                <textarea name="description" class="ms-input" rows="2"></textarea>
+            </label>
+            <label class="ms-field">
+                <span>Kind</span>
+                <select name="kindCode" class="ms-select" required>
+                    @foreach (var source in Model.Sources)
+                    {
+                        <option value="@source.KindCode">@source.KindName</option>
+                    }
+                </select>
+            </label>
+            <label class="ms-field">
+                <span>Item code</span>
+                <input name="itemCode" class="ms-input" maxlength="60" />
+            </label>
+            <label class="ms-field">
+                <span>Type</span>
+                <select name="eventTypeCode" class="ms-select">
+                    <option value="">None</option>
+                    @foreach (var type in Model.EventTypes)
+                    {
+                        <option value="@type.ValueCode">@type.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="ms-field">
+                <span>Part</span>
+                <select name="partCode" class="ms-select">
+                    <option value="">None</option>
+                    @foreach (var part in Model.Parts)
+                    {
+                        <option value="@part.ValueCode">@part.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="ms-field">
+                <span>Measure</span>
+                <select name="measureCode" class="ms-select">
+                    <option value="">None</option>
+                    @foreach (var measure in Model.Measures)
+                    {
+                        <option value="@measure.ValueCode">@measure.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="ms-field">
+                <span>Phase</span>
+                <select name="phaseCode" class="ms-select">
+                    <option value="">None</option>
+                    @foreach (var phase in Model.Phases)
+                    {
+                        <option value="@phase.ValueCode">@phase.Name</option>
+                    }
+                </select>
+            </label>
+            <label class="ms-field">
+                <span>Passes when the status is</span>
+                <input name="passValue" class="ms-input" maxlength="60" />
+            </label>
+            <label class="ms-field">
+                <span>Floor, when the measure is summed</span>
+                <input name="sumFloor" type="number" step="0.01" class="ms-input" />
+            </label>
+            <label class="ms-field">
+                <span>Valid for, in months</span>
+                <input name="validityMonths" type="number" min="1" class="ms-input" />
+            </label>
+
+            <div class="ms-form__foot">
+                <button type="submit" class="ms-btn ms-btn--primary">Save</button>
+                <button type="button" class="ms-btn" data-close>Cancel</button>
+            </div>
+        </form>
+    </template>
+}

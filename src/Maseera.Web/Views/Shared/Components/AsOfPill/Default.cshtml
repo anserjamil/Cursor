@@ -1,0 +1,7 @@
+@model IUserContext
+
+@* All date logic reads against this, never against today. *@
+<span class="ms-pill @(Model.AsOf != DateOnly.FromDateTime(DateTime.UtcNow) ? "ms-pill--emphasis" : "")"
+      title="Every window, countdown and overdue test is measured against this date">
+    As of <as-of-date value="@Model.AsOf"></as-of-date>
+</span>

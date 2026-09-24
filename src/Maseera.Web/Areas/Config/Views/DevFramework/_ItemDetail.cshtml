@@ -1,0 +1,76 @@
+@model ItemDetailViewModel
+
+@* The drilldown behind "applies to N of the pool". It is the same engine read, scoped the
+   same way, so the number here can never disagree with the number that was clicked. *@
+<div class="ms-itemdetail">
+    <div class="ms-itemdetail__head">
+        <ms-code>@Model.ItemCode</ms-code>
+        <span class="ms-topbar__spacer"></span>
+        <share-text count="@Model.Totals.MetCount" total="@Model.Totals.PoolCount" with-count="true"></share-text>
+    </div>
+
+    <div class="ms-chips" role="group" aria-label="Filter">
+        <button type="button" class="ms-chip @(Model.MetOnly ? "is-current" : "")"
+                data-item-filter="true">Who meets it</button>
+        <button type="button" class="ms-chip @(Model.MetOnly ? "" : "is-current")"
+                data-item-filter="false">Everyone in the pool</button>
+    </div>
+
+    @if (Model.People.Count == 0)
+    {
+        @await Html.PartialAsync("_EmptyState",
+            ("Nobody",
+             "Nobody in the organisations you can see meets this requirement. That is an answer, not a failure.",
+             (string?)null, (string?)null))
+    }
+    else
+    {
+        <div class="ms-table-wrap">
+            <table class="ms-table">
+                <thead>
+                    <tr>
+                        <th class="is-sticky-col">Person</th>
+                        <th>Organisation</th>
+                        <th>Job</th>
+                        <th>Grade</th>
+                        <th>Met</th>
+                        <th>Why</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var person in Model.People)
+                {
+                    <tr>
+                        <td class="is-sticky-col">
+                            @person.FullName
+                            <div class="ms-micro"><ms-code>@person.PersonnelNo</ms-code></div>
+                        </td>
+                        <td>@(person.OrgName ?? person.OrgCode)</td>
+                        <td>@(person.JobTitle ?? "—")</td>
+                        <td><ms-code>@(person.GradeCode ?? "—")</ms-code></td>
+                        <td>
+                            <state-chip role="@(person.Met ? "success" : "neutral")"
+                                        label="@(person.Met ? "Met" : "Not met")"></state-chip>
+                        </td>
+                        @* The reason is never optional, met or not. *@
+                        <td class="ms-rule">
+                            @person.Why
+                            @if (person.ViaCode is not null)
+                            {
+                                <span class="ms-micro">via <ms-code>@person.ViaCode</ms-code></span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="ms-table-foot">
+            <div>
+                <span class="ms-num">@Model.People.Count.ToString("N0")</span> shown of
+                <span class="ms-num">@Model.Totals.TotalRows.ToString("N0")</span>
+            </div>
+        </div>
+    }
+</div>

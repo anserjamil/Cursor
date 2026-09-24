@@ -1,0 +1,126 @@
+@model WizardViewModel
+@{
+    ViewData["Title"] = "Readiness levels";
+    var cycle = Model.Detail.Cycle!;
+    var summary = Model.SpreadSummary;
+}
+
+@await Html.PartialAsync("_Wizard", Model)
+
+<div class="ms-split">
+    <section class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">How much is enough</h3></div>
+        <div class="ms-card__body">
+            <p class="ms-hero__sub">
+                Each level is a percentage of the assigned frameworks' requirements. A person
+                is counted at the highest level they clear, and a requirement marked must
+                disqualifies them outright if it is not met.
+            </p>
+
+            @foreach (var level in Model.Detail.Levels)
+            {
+                <form method="post" asp-action="SaveLevel" class="ms-row">
+                    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                    <input type="hidden" name="cycleReadinessId" value="@level.CycleReadinessId" />
+
+                    <input class="ms-input ms-code ms-input--code" name="levelCode" value="@level.LevelCode"
+                           disabled="@(!Model.CanWrite)" aria-label="Level code" />
+                    <input class="ms-input" name="name" value="@level.Name"
+                           disabled="@(!Model.CanWrite)" aria-label="Level name" />
+                    <label class="ms-field ms-field--inline">
+                        <input class="ms-input ms-input--num" type="number" min="0" max="100" step="0.1"
+                               name="thresholdPct" value="@level.ThresholdPct"
+                               disabled="@(!Model.CanWrite)" aria-label="Threshold percentage" />
+                        <span class="ms-micro">%</span>
+                    </label>
+
+                    @if (Model.CanWrite)
+                    {
+                        <button type="submit" class="ms-btn ms-btn--sm">Save</button>
+                    }
+                </form>
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="DeleteLevel" class="ms-inline"
+                          data-confirm="Remove @level.Name?">
+                        <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                        <input type="hidden" name="cycleReadinessId" value="@level.CycleReadinessId" />
+                        <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost">Remove</button>
+                    </form>
+                }
+            }
+
+            @if (Model.CanWrite)
+            {
+                <form method="post" asp-action="SaveLevel" class="ms-row">
+                    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                    <input class="ms-input ms-code ms-input--code" name="levelCode" placeholder="R6" required aria-label="New level code" />
+                    <input class="ms-input" name="name" placeholder="Name" required aria-label="New level name" />
+                    <input class="ms-input ms-input--num" type="number" min="0" max="100" step="0.1"
+                           name="thresholdPct" placeholder="%" aria-label="New threshold" />
+                    <button type="submit" class="ms-btn ms-btn--sm">Add a level</button>
+                </form>
+            }
+        </div>
+    </section>
+
+    <aside class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">Where the pool falls today</h3>
+            <span class="ms-topbar__spacer"></span>
+            @if (summary?.IsSampled == true && summary.SampleNote is not null)
+            {
+                <span class="ms-sampled">@summary.SampleNote</span>
+            }
+        </div>
+        <div class="ms-card__body">
+            @if (Model.Spread.Count == 0)
+            {
+                @await Html.PartialAsync("_EmptyState",
+                    ("Nothing to measure yet",
+                     "A level needs a framework contributing events before anybody can reach it.",
+                     (string?)null, (string?)null))
+            }
+            else
+            {
+                @foreach (var level in Model.Spread)
+                {
+                    <div class="ms-row">
+                        <div>
+                            <ms-code>@level.LevelCode</ms-code> @level.Name
+                            <div class="ms-micro">at @level.ThresholdPct?.ToString("0.#")% or more</div>
+                        </div>
+                        <span class="ms-topbar__spacer"></span>
+                        <div class="ms-num" title="Counted at the highest level they clear">
+                            @level.AtThisLevel.ToString("N0")
+                        </div>
+                        <div class="ms-micro" title="Everybody who clears this cut, at any level">
+                            @level.ClearCut.ToString("N0") clear the cut
+                        </div>
+                    </div>
+                }
+
+                @if (summary is not null)
+                {
+                    <div class="ms-row ms-row--muted">
+                        <div>Hold no level yet</div>
+                        <span class="ms-topbar__spacer"></span>
+                        <div class="ms-num">@summary.NoLevelYet.ToString("N0")</div>
+                    </div>
+
+                    @if (summary.Disqualified > 0)
+                    {
+                        <div class="ms-row ms-row--danger">
+                            <div>Disqualified by a must requirement</div>
+                            <span class="ms-topbar__spacer"></span>
+                            <div class="ms-num">@summary.Disqualified.ToString("N0")</div>
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </aside>
+</div>
+
+@await Html.PartialAsync("_SaveBar", (Model.Todos, 4, false, "Continue"))

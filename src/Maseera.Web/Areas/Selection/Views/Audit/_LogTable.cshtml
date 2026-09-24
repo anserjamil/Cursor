@@ -1,0 +1,79 @@
+@model DecisionLogViewModel
+
+<div class="ms-table-wrap" data-table data-page-no="@Model.PageNo" data-page-size="@Model.PageSize">
+    @if (Model.Log.Rows.Count == 0)
+    {
+        @await Html.PartialAsync("_EmptyState",
+            ("No decisions yet",
+             "Nothing has been decided under these filters. Clear them, or open a stage and decide something.",
+             (string?)null, (string?)null))
+    }
+    else
+    {
+        <table class="ms-table">
+            <thead>
+                <tr>
+                    <th class="is-sticky-col">Person</th>
+                    <th>Organisation</th>
+                    <th>Cycle</th>
+                    <th>Stage</th>
+                    <th>Decision</th>
+                    <th>Decided by</th>
+                    <th>Reason</th>
+                    <th>Actor</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Log.Rows)
+            {
+                <tr class="@(row.IsTest ? "is-test" : "")">
+                    <td class="is-sticky-col">
+                        <a asp-controller="Profile" asp-action="Index"
+                           asp-route-personnelNo="@row.PersonnelNo" asp-route-cycleId="@row.CycleId">
+                            @(row.FullName ?? row.PersonnelNo)
+                        </a>
+                        <div class="ms-micro"><ms-code>@row.PersonnelNo</ms-code></div>
+                    </td>
+                    <td>
+                        @(row.OrgName ?? "—")
+                        <div class="ms-micro"><ms-code>@(row.OrgCode ?? "—")</ms-code></div>
+                    </td>
+                    <td>
+                        @(row.CycleName ?? row.CycleId.ToString())
+                        @if (row.CycleCode is not null)
+                        {
+                            <div class="ms-micro"><ms-code>@row.CycleCode</ms-code></div>
+                        }
+                    </td>
+                    <td>
+                        @(row.StageName ?? "—")
+                        @if (row.ProcessName is not null)
+                        {
+                            <div class="ms-micro">@row.ProcessName</div>
+                        }
+                    </td>
+                    <td>
+                        <state-chip role="@row.DecisionRole" label="@row.DecisionName"></state-chip>
+                        @if (row.IsTest)
+                        {
+                            @* Stamped when it was taken, and never unstamped. *@
+                            <span class="ms-tag ms-tag--test" title="Taken in test mode. It counts for nothing.">TEST</span>
+                        }
+                    </td>
+                    <td>@(row.PerformerName ?? "—")</td>
+                    <td>@(row.Reason ?? "—")</td>
+                    <td>
+                        @(row.ActorName ?? row.ActorLogin)
+                        <div class="ms-micro"><ms-code>@row.ActorLogin</ms-code></div>
+                    </td>
+                    <td class="ms-micro">@row.DecidedOnUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    @await Html.PartialAsync("_Pager",
+        (Model.PageNo, Model.PageCount, Model.Log.TotalRows, Model.Log.Rows.Count))
+</div>

@@ -1,0 +1,59 @@
+@{
+    var title = ViewData["Title"] as string;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(title is null ? "Maseera" : title + " · Maseera")</title>
+
+    @* Everything is served from this machine. The tool runs on a restricted network:
+       no CDN, ever — not for the stylesheet, not for the script, not for the fonts. *@
+    <link rel="stylesheet" href="~/css/vendor/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    @* The three faces the interface uses, preloaded so the first paint is not a reflow. *@
+    <link rel="preload" href="~/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="~/fonts/ibm-plex-sans-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="~/fonts/ibm-plex-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body>
+    @* The anti-forgery token every write posts back, whether by form or by fetch. *@
+    @Html.AntiForgeryToken()
+
+    <a class="visually-hidden-focusable" href="#ms-main">Skip to the content</a>
+
+    @await Html.PartialAsync("_TopBar")
+
+    <main id="ms-main" class="ms-shell">
+        @RenderBody()
+    </main>
+
+    @* Toasts the server left behind, rendered by site.js so a redirect and an AJAX post
+       say exactly the same thing. *@
+    @await Component.InvokeAsync("Toasts", new { json = TempData["MaseeraToasts"] as string })
+
+    <div class="ms-drawer" id="ms-drawer" hidden aria-label="Details">
+        <div class="ms-drawer__head">
+            <strong class="ms-drawer__title">Details</strong>
+            <span class="ms-topbar__spacer"></span>
+            <button type="button" class="ms-btn ms-btn--ghost ms-btn--sm" data-close>Close</button>
+        </div>
+        <div class="ms-drawer__body"></div>
+    </div>
+
+    <div class="ms-modal" id="ms-modal" hidden role="dialog" aria-modal="true">
+        <div class="ms-modal__panel">
+            <div class="ms-modal__head"><strong class="ms-modal__title">&nbsp;</strong></div>
+            <div class="ms-modal__body"></div>
+        </div>
+    </div>
+
+    @* Four files, served as they are. No framework and no bundler. *@
+    <script type="module" src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

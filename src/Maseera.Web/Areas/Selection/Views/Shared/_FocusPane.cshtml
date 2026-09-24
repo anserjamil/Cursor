@@ -1,0 +1,48 @@
+@model FocusPaneViewModel
+@{
+    var person = Model.Profile.Person!;
+}
+
+<div class="ms-focus">
+    <div class="ms-focus__head">
+        <h3>@person.FullName</h3>
+        <div class="ms-micro">
+            <ms-code>@person.PersonnelNo</ms-code> · @person.OrgName · @person.JobTitle
+        </div>
+    </div>
+
+    <div class="ms-focus__facts">
+        <div><span class="ms-micro">Grade</span> <ms-code>@person.GradeCode</ms-code></div>
+        <div><span class="ms-micro">Suffix</span> <ms-code>@person.PermJobSuffix</ms-code></div>
+        <div><span class="ms-micro">Promoted</span> <as-of-date value="@person.PromotionDate"></as-of-date></div>
+        <div><span class="ms-micro">Tenure</span> <span class="ms-num">@person.TenureYears?.ToString("0.#")</span> years</div>
+    </div>
+
+    @if (Model.Profile.Ladder.Count > 0)
+    {
+        <h4 class="ms-micro">Readiness</h4>
+        <div class="ms-ladder">
+            @foreach (var rung in Model.Profile.Ladder)
+            {
+                <div class="ms-ladder__rung">
+                    <div class="ms-ladder__level">
+                        <ms-code>@rung.LevelCode</ms-code>
+                        <div class="ms-micro">@rung.Name</div>
+                    </div>
+                    <ms-bar value="@((double)rung.AttainmentPct)" tick="@((double?)rung.ThresholdPct)"
+                            label="@rung.AttainmentPct.ToString("0")% against @rung.ThresholdPct?.ToString("0")%"></ms-bar>
+                    <div class="ms-ladder__state">@rung.StateWord</div>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="ms-focus__actions">
+        <a class="ms-btn ms-btn--sm" asp-controller="Profile" asp-action="Index"
+           asp-route-personnelNo="@person.PersonnelNo" asp-route-cycleId="@Model.CycleId">
+            Open the profile
+        </a>
+        <a class="ms-btn ms-btn--sm" asp-controller="Compare" asp-action="Index"
+           asp-route-personnelNo="@person.PersonnelNo" asp-route-cycleId="@Model.CycleId">Compare</a>
+    </div>
+</div>

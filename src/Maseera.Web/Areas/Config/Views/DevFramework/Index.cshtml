@@ -1,0 +1,55 @@
+@model DevFrameworkViewModel
+@{
+    ViewData["Title"] = "Development framework";
+
+    // The tabs are fixed faces of one screen, not a menu: each is a different question
+    // asked of the same framework.
+    var tabs = new[]
+    {
+        ("events", "Events", "What can be asked for, and the rule that answers it"),
+        ("frameworks", "Frameworks", "Which events a level asks for, and what each is worth"),
+        ("mixture", "Mixture", "How the weight should be spread across the parts"),
+        ("sources", "Sources", "Where completion is actually read from")
+    };
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Configuration</div>
+    <div class="ms-hero__line">The development framework.</div>
+    <p class="ms-hero__sub">
+        An event is a question. A rule is how the question gets answered from the data.
+        Nothing here is written in code: change a rule and every cycle reading it changes
+        with it, including the ones already open.
+    </p>
+</div>
+
+<nav class="ms-tabs" aria-label="Framework">
+    @foreach (var (key, caption, subtitle) in tabs)
+    {
+        <a class="ms-tab @(Model.ActiveTab == key ? "is-current" : "")"
+           asp-action="Index" asp-route-tab="@key" title="@subtitle">@caption</a>
+    }
+</nav>
+
+<div id="ms-framework-tab">
+    @switch (Model.ActiveTab)
+    {
+        case "frameworks":
+            @await Html.PartialAsync("_TabFrameworks", Model)
+            break;
+        case "mixture":
+            @await Html.PartialAsync("_TabMixture", Model)
+            break;
+        case "sources":
+            @await Html.PartialAsync("_TabSources", Model)
+            break;
+        default:
+            @await Html.PartialAsync("_TabEvents", Model)
+            break;
+    }
+</div>
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+    <script type="module" src="~/js/criteria.js" asp-append-version="true"></script>
+}

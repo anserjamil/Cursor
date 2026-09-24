@@ -1,0 +1,11 @@
+@model StageViewModel
+@{
+    ViewData["Title"] = Model.State.StageName;
+}
+
+@await Html.PartialAsync("_Stage", Model)
+
+<div class="ms-toolbar">
+    <a class="ms-btn" asp-action="Plans" asp-route-cycleStageId="@Model.State.CycleStageId">Department plans</a>
+    <a class="ms-btn" asp-action="ByPosition" asp-route-cycleStageId="@Model.State.CycleStageId">By position</a>
+</div>

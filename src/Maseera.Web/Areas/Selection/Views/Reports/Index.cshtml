@@ -1,0 +1,86 @@
+@model ReportsViewModel
+@{
+    ViewData["Title"] = Model.Active?.Name ?? "Reports";
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Reports</div>
+    <div class="ms-hero__line">@(Model.Active?.Name ?? "What the cycles add up to")</div>
+    <p class="ms-hero__sub">
+        @(Model.Active?.Description
+          ?? "Every report is counted inside the organisations you have been granted, and every share "
+           + "is printed from its own count and total so a figure can never contradict the number beside it.")
+    </p>
+</div>
+
+<div class="ms-split">
+    @* The list of reports is sel.ReportDefinition, so a new report is a row and a
+       procedure — never a new page here. *@
+    <aside class="ms-split__side">
+        <h2 class="ms-micro">Reports</h2>
+        <nav class="ms-list" aria-label="Reports">
+            @foreach (var definition in Model.Definitions.OrderBy(d => d.SortOrder))
+            {
+                <a class="ms-list__item @(definition.ReportKey == Model.ActiveKey ? "is-current" : "")"
+                   asp-action="Index" asp-route-key="@definition.ReportKey" asp-route-cycleId="@Model.CycleId">
+                    <div><strong>@definition.Name</strong></div>
+                    @if (definition.Description is not null)
+                    {
+                        <div class="ms-micro">@definition.Description</div>
+                    }
+                    @if (definition.NeedsCycle)
+                    {
+                        <span class="ms-tag" title="This report is counted against one cycle">Needs a cycle</span>
+                    }
+                </a>
+            }
+        </nav>
+    </aside>
+
+    <section class="ms-split__main">
+        <form method="get" class="ms-toolbar">
+            <input type="hidden" name="key" value="@Model.ActiveKey" />
+            <label class="ms-micro">
+                Cycle
+                <select name="cycleId" class="ms-select" aria-label="Cycle">
+                    <option value="">No cycle</option>
+                    @foreach (var cycle in Model.Cycles)
+                    {
+                        <option value="@cycle.CycleId" selected="@(Model.CycleId == cycle.CycleId)">
+                            @cycle.Name
+                        </option>
+                    }
+                </select>
+            </label>
+            <button type="submit" class="ms-btn">Run</button>
+
+            <span class="ms-topbar__spacer"></span>
+
+            @if (Model.ActiveKey is not null && Model.Result?.Problem is null)
+            {
+                <a class="ms-btn ms-btn--sm" asp-action="Download"
+                   asp-route-key="@Model.ActiveKey" asp-route-cycleId="@Model.CycleId"
+                   asp-route-format="csv">CSV</a>
+                <a class="ms-btn ms-btn--sm" asp-action="Download"
+                   asp-route-key="@Model.ActiveKey" asp-route-cycleId="@Model.CycleId"
+                   asp-route-format="xlsx">Excel</a>
+            }
+        </form>
+
+        @if (Model.ActiveKey is null)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Pick a report",
+                 "Choose one on the left. Reports that need a cycle say so, and will refuse politely until one is chosen.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            @await Html.PartialAsync("_ReportTable", Model)
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,59 @@
+@model IReadOnlyList<AddablePersonRow>
+
+@*
+   In a talent or development cycle anybody in the roster may be added — they are
+   nominated from that stage, flagged Outside criteria, and logged. In a succession stage
+   the pull comes from the eligible pool as Non HIPO, which is why the list is already
+   narrowed by the time it gets here.
+*@
+<form method="post" asp-action="AddPeople" data-ajax data-ok-message="Added.">
+    <input type="hidden" name="cycleStageId" value="@ViewContext.HttpContext.Request.Query["cycleStageId"]" />
+
+    <div class="ms-modal__head">
+        <strong>Add people to this stage</strong>
+        <p class="ms-hero__sub">
+            Anybody added here is recorded with where they came from, and the addition is a
+            decision in its own right.
+        </p>
+        <input type="search" class="ms-input" placeholder="Search the roster"
+               aria-label="Search the roster"
+               oninput="const n=this.value.toLowerCase();this.closest('form').querySelectorAll('[data-person]').forEach(r=>r.hidden=n&&!r.dataset.person.includes(n))" />
+        <label class="ms-check">
+            <input type="checkbox"
+                   onchange="this.closest('form').querySelectorAll('[data-person]:not([hidden]) input[type=checkbox]').forEach(c=>c.checked=this.checked)" />
+            Select everyone listed
+        </label>
+    </div>
+
+    <div class="ms-modal__body">
+        <div class="ms-peoplelist">
+            @foreach (var person in Model)
+            {
+                <label class="ms-row" data-person="@((person.FullName + " " + person.PersonnelNo + " " + person.JobTitle).ToLowerInvariant())">
+                    <input type="checkbox" name="personnelNo" value="@person.PersonnelNo"
+                           disabled="@person.AlreadyIn" />
+                    <div>
+                        <strong>@person.FullName</strong>
+                        <div class="ms-micro">
+                            <ms-code>@person.PersonnelNo</ms-code> · @person.OrgName · @person.JobTitle
+                        </div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    @if (person.AlreadyIn)
+                    {
+                        <span class="ms-tag">Already in</span>
+                    }
+                    else
+                    {
+                        <span class="ms-tag">@person.SourceCode</span>
+                    }
+                </label>
+            }
+        </div>
+    </div>
+
+    <div class="ms-modal__foot">
+        <button type="reset" class="ms-btn">Clear</button>
+        <button type="submit" class="ms-btn ms-btn--primary">Add the people selected</button>
+    </div>
+</form>

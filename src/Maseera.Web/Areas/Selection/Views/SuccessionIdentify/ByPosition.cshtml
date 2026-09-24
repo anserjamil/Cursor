@@ -1,0 +1,88 @@
+@model ByPositionViewModel
+@{
+    ViewData["Title"] = "By position";
+}
+
+<nav class="ms-breadcrumb" aria-label="Breadcrumb">
+    <a asp-controller="Cycles" asp-action="Index">Cycles</a>
+    <span aria-hidden="true">›</span>
+    <span>@Model.State.ProcessName</span>
+    <span aria-hidden="true">›</span>
+    <span>By position</span>
+</nav>
+
+@await Component.InvokeAsync("StageTabs", new { tabs = Model.Tabs, state = Model.State })
+
+@if (Model.Positions.Problem is not null)
+{
+    @* A missing position table is said out loud, not rendered as an empty list. *@
+    <div class="ms-refusal" role="alert">
+        <div class="ms-refusal__title">The positions could not be read</div>
+        <p>@Model.Positions.Problem</p>
+        <a class="ms-btn" asp-area="Config" asp-controller="TableMapping" asp-action="Index">Table mapping</a>
+    </div>
+}
+
+@foreach (var position in Model.Positions.Positions)
+{
+    var successors = Model.Positions.Slots.Where(s => s.PositionCode == position.PositionCode).ToList();
+
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <div>
+                <ms-code>@position.PositionCode</ms-code>
+                <h3 class="ms-card__title">@position.IncumbentName</h3>
+                <div class="ms-micro">@position.OrgName · @position.JobTitle</div>
+            </div>
+            <span class="ms-topbar__spacer"></span>
+            <span class="ms-num">@successors.Count</span>
+            <span class="ms-micro">named</span>
+        </div>
+
+        <div class="ms-card__body">
+            @if (successors.Count == 0)
+            {
+                <p class="ms-table__recessive">No successor has been named against this position yet.</p>
+            }
+
+            @foreach (var successor in successors)
+            {
+                <div class="ms-row">
+                    <div>
+                        <strong>@successor.SuccessorName</strong>
+                        <div class="ms-micro"><ms-code>@successor.SuccessorPersonnelNo</ms-code> · @successor.JobTitle</div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    @if (successor.LevelCode is not null)
+                    {
+                        <span class="ms-tag">@successor.LevelCode — @successor.LevelName</span>
+                    }
+                    <span class="ms-table__recessive">@successor.Remark</span>
+                    @if (Model.CanWrite)
+                    {
+                        <form method="post" asp-action="RemoveSlot" class="ms-inline"
+                              data-confirm="Remove @successor.SuccessorName from @position.PositionCode?">
+                            <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                            <input type="hidden" name="slotId" value="@successor.SuccessionSlotId" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost">Remove</button>
+                        </form>
+                    }
+                </div>
+            }
+
+            @if (Model.CanWrite)
+            {
+                <form method="post" asp-action="SaveSlot" class="ms-row">
+                    <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                    <input type="hidden" name="positionCode" value="@position.PositionCode" />
+                    <input type="hidden" name="incumbentPersonnelNo" value="@position.IncumbentPersonnelNo" />
+                    <input class="ms-input ms-code" name="successorPersonnelNo" placeholder="Personnel No" required
+                           aria-label="Successor personnel number" />
+                    <input class="ms-input ms-input--code" name="levelCode" placeholder="Level" aria-label="Readiness level" />
+                    <input class="ms-input" name="remark" placeholder="Remark" aria-label="Remark" />
+                    <button type="submit" class="ms-btn ms-btn--sm">Name a successor</button>
+                </form>
+            }
+        </div>
+    </section>
+}

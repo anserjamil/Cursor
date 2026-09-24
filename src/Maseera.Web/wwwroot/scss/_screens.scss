@@ -1,0 +1,606 @@
+// =====================================================================================
+// _screens.scss — the parts that belong to one screen, and the states every screen has.
+// =====================================================================================
+
+@import "tokens";
+
+// =====================================================================================
+// The wizard
+// =====================================================================================
+
+.ms-steps {
+  display: flex;
+  align-items: center;
+  gap: $s2;
+  flex-wrap: wrap;
+  margin-bottom: $s5;
+}
+
+.ms-step {
+  display: inline-flex;
+  align-items: center;
+  gap: $s2;
+  padding: $s2 $s3;
+  border-radius: $r-pill;
+  border: 1px solid var(--ms-hairline);
+  background: var(--ms-surface);
+  font-size: 12px;
+  color: var(--ms-text-secondary);
+  text-decoration: none;
+
+  &__no {
+    display: inline-grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: $muted-bg;
+    font-family: $font-mono;
+    font-size: 11px;
+  }
+
+  &.is-current {
+    border-color: var(--ms-pri);
+    background: $pri-bg;
+    color: var(--ms-pri-d);
+    font-weight: $fw-semi;
+    .ms-step__no { background: var(--ms-pri); color: #fff; }
+  }
+
+  // ✓ done, – skipped. Both readable without colour.
+  &.is-done .ms-step__no { background: $good-bg; color: $good; &::after { content: "✓"; } }
+  &.is-done .ms-step__no { font-size: 0; }
+  &.is-done .ms-step__no::after { font-size: 11px; }
+
+  &.is-skipped {
+    opacity: 0.7;
+    .ms-step__no { background: transparent; border: 1px dashed $ink-300; font-size: 0; }
+    .ms-step__no::after { content: "–"; font-size: 12px; }
+  }
+}
+
+// A sticky action bar, with the blocking sentence beside the button it disables — never
+// a red dot alone.
+.ms-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: $s4;
+  padding: $s3 $s5;
+  margin-top: $s6;
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-card;
+  box-shadow: $e2;
+  z-index: 20;
+
+  &__reason {
+    flex: 1;
+    color: $warn;
+    font-size: 12.5px;
+  }
+}
+
+.ms-progress-meter {
+  font-size: 12.5px;
+  color: var(--ms-text-secondary);
+}
+
+// The read-only bar states WHICH reason applies.
+.ms-readonly-bar {
+  display: flex;
+  align-items: center;
+  gap: $s3;
+  padding: $s3 $s4;
+  margin-bottom: $s5;
+  border-radius: $r-row;
+  background: $muted-bg;
+  border: 1px solid $muted-bd;
+  color: $ink-700;
+
+  &::before {
+    content: "Read only";
+    @extend .ms-micro;
+    flex: none;
+    color: $ink-600;
+  }
+
+  &--warning { background: $warn-bg; border-color: $warn-bd; color: $warn; }
+}
+
+.ms-delegate-banner {
+  display: flex;
+  align-items: center;
+  gap: $s3;
+  padding: $s3 $s4;
+  margin-bottom: $s5;
+  border-radius: $r-row;
+  background: $info-bg;
+  border: 1px solid $info-bd;
+  color: $info;
+}
+
+// =====================================================================================
+// The criteria builder and the rule editor
+// =====================================================================================
+
+.ms-set {
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-card;
+  background: var(--ms-surface);
+  margin-bottom: $s4;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $s3;
+    padding: $s3 $s4;
+    border-bottom: 1px solid var(--ms-hairline);
+    background: $muted-bg;
+    border-radius: $r-card $r-card 0 0;
+  }
+
+  &__label {
+    font-family: $font-mono;
+    font-weight: $fw-semi;
+    font-size: 12px;
+  }
+
+  &__body { padding: $s4; }
+
+  // The join to the previous set sits between the two, not inside either.
+  &__join {
+    display: inline-flex;
+    align-items: center;
+    gap: $s2;
+    margin: $s2 0 $s2 $s4;
+    font-size: 12px;
+    color: var(--ms-text-recessive);
+  }
+
+  &__reach {
+    margin-left: auto;
+    font-family: $font-mono;
+    font-size: 12px;
+    color: var(--ms-text-secondary);
+  }
+}
+
+.ms-condition {
+  display: flex;
+  align-items: center;
+  gap: $s2;
+  padding: $s2 0;
+
+  & + & { border-top: 1px dashed var(--ms-hairline); }
+
+  .ms-select, .ms-input { height: 32px; }
+  &__field { flex: 2 1 200px; }
+  &__op { flex: 1 1 150px; }
+  &__value { flex: 1 1 140px; }
+}
+
+// The whole rule, restated as one sentence, live.
+.ms-sentence {
+  padding: $s3 $s4;
+  border-radius: $r-row;
+  background: $pri-bg;
+  border: 1px solid $pri-bd;
+  color: $pri-d;
+  line-height: 1.55;
+
+  &--muted { background: $muted-bg; border-color: $muted-bd; color: $ink-700; }
+}
+
+// =====================================================================================
+// The readiness ladder — the reason the profile exists
+// =====================================================================================
+
+.ms-ladder {
+  &__rung {
+    display: grid;
+    grid-template-columns: 90px 1fr 120px;
+    gap: $s4;
+    align-items: center;
+    padding: $s4 0;
+    border-top: 1px solid var(--ms-hairline);
+  }
+
+  &__level { font-family: $font-mono; font-weight: $fw-semi; }
+  &__state { text-align: right; font-weight: $fw-medium; }
+
+  &__req {
+    display: flex;
+    align-items: baseline;
+    gap: $s2;
+    padding: $s2 0;
+    font-size: $fs-table;
+
+    &.is-met { color: var(--ms-text-recessive); }
+    &.is-must { font-weight: $fw-medium; }
+  }
+
+  // The reason on every requirement: "99 against 75 via ASM-360-02".
+  &__why {
+    font-family: $font-mono;
+    font-size: 11.5px;
+    color: var(--ms-text-recessive);
+    margin-left: auto;
+  }
+}
+
+// =====================================================================================
+// The individual development plan
+// =====================================================================================
+
+.ms-tabs {
+  display: flex;
+  gap: $s1;
+  border-bottom: 1px solid var(--ms-hairline);
+  margin-bottom: $s5;
+
+  &__tab {
+    padding: $s3 $s4;
+    border: 0;
+    background: none;
+    color: var(--ms-text-secondary);
+    font-size: $fs-body;
+    font-weight: $fw-medium;
+    cursor: pointer;
+    text-decoration: none;
+
+    &.is-current {
+      color: var(--ms-pri-d);
+      font-weight: $fw-semi;
+      box-shadow: inset 0 -2px 0 var(--ms-pri);
+    }
+  }
+}
+
+.ms-idp-item {
+  display: grid;
+  grid-template-columns: 1fr 280px 160px;
+  gap: $s4;
+  align-items: center;
+  padding: $s3 0;
+  border-top: 1px solid var(--ms-hairline);
+
+  // A met requirement stays on screen, greyed, so the plan reads whole.
+  &.is-met {
+    color: var(--ms-text-recessive);
+    .ms-idp-item__name { text-decoration: none; }
+  }
+
+  &__name { font-weight: $fw-medium; }
+  &__code { font-family: $font-mono; font-size: $fs-micro; color: var(--ms-text-recessive); }
+  &__sources { font-size: 11.5px; color: var(--ms-text-recessive); }
+}
+
+.ms-session-card {
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-row;
+  padding: $s3 $s4;
+  background: var(--ms-surface);
+
+  &.is-full { opacity: 0.6; }
+  &__seats { font-family: $font-mono; font-size: 12px; }
+}
+
+// =====================================================================================
+// The grant matrix — separated by FILL WEIGHT so it survives greyscale
+// =====================================================================================
+
+.ms-grant {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 20px;
+  border-radius: $r-chip;
+  font-family: $font-mono;
+  font-size: 10px;
+  border: 1px solid var(--ms-hairline);
+
+  &--write  { background: $ink;        color: #fff;      border-color: $ink;   &::after { content: "RW"; } }
+  &--read   { background: $ink-300;    color: $ink;      &::after { content: "R"; } }
+  &--deny   { background: $danger-bg;  color: $danger;   border-color: $danger-bd; &::after { content: "×"; } }
+
+  // "No grant" is a visible third state, not an empty cell.
+  &--none   { background: repeating-linear-gradient(45deg, transparent, transparent 3px, #{$ink-300} 3px, #{$ink-300} 4px);
+              color: $ink-500; &::after { content: ""; } }
+}
+
+.ms-precedence {
+  counter-reset: rule;
+  list-style: none;
+  padding: 0;
+
+  li {
+    counter-increment: rule;
+    display: grid;
+    grid-template-columns: 28px 160px 1fr;
+    gap: $s3;
+    padding: $s3 0;
+    border-top: 1px solid var(--ms-hairline);
+
+    &::before {
+      content: counter(rule);
+      font-family: $font-mono;
+      font-weight: $fw-semi;
+      color: var(--ms-text-recessive);
+    }
+  }
+
+  &__title { font-weight: $fw-semi; }
+}
+
+// =====================================================================================
+// Empty, refusal and sampled states
+// =====================================================================================
+
+.ms-empty {
+  padding: $s8 $s5;
+  text-align: center;
+  color: var(--ms-text-secondary);
+  border: 1px dashed $ink-300;
+  border-radius: $r-card;
+  background: var(--ms-surface);
+
+  &__title { font-size: $fs-card-title; font-weight: $fw-semi; color: var(--ms-ink); margin-bottom: $s2; }
+  &__body { max-width: 52ch; margin: 0 auto; }
+}
+
+// "The question could not be asked" is not "nobody qualifies", and does not look like it.
+.ms-refusal {
+  padding: $s5;
+  border-radius: $r-card;
+  background: $warn-bg;
+  border: 1px solid $warn-bd;
+  color: $ink-700;
+
+  &__title { font-weight: $fw-semi; color: $warn; margin-bottom: $s2; }
+}
+
+// "Estimated from a sample of 600 of 12,000."
+.ms-sampled {
+  display: inline-flex;
+  align-items: center;
+  gap: $s2;
+  padding: $s2 $s3;
+  border-radius: $r-chip;
+  background: $info-bg;
+  border: 1px solid $info-bd;
+  color: $info;
+  font-size: 12px;
+}
+
+// =====================================================================================
+// Toasts, drawers, modals
+// =====================================================================================
+
+.ms-toasts {
+  position: fixed;
+  right: $gutter;
+  bottom: $gutter;
+  display: flex;
+  flex-direction: column;
+  gap: $s2;
+  z-index: 200;
+  max-width: 420px;
+}
+
+.ms-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: $s3;
+  padding: $s3 $s4;
+  border-radius: $r-row;
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-hairline);
+  box-shadow: $e3;
+
+  &--ok   { border-left: 3px solid $good; }
+  &--warn { border-left: 3px solid $warn; }
+
+  &__close { background: none; border: 0; cursor: pointer; color: var(--ms-text-recessive); }
+}
+
+.ms-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 820px;
+  max-width: 100vw;
+  background: var(--ms-surface);
+  border-left: 1px solid var(--ms-hairline);
+  box-shadow: $e3;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+
+  &[hidden] { display: none; }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: $s3;
+    padding: $s4 $s5;
+    border-bottom: 1px solid var(--ms-hairline);
+  }
+
+  &__body { flex: 1; overflow: auto; padding: $s5; }
+}
+
+.ms-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.38);
+
+  &[hidden] { display: none; }
+
+  &__panel {
+    width: 640px;
+    max-width: calc(100vw - #{$s7});
+    max-height: calc(100vh - #{$s8});
+    overflow: auto;
+    background: var(--ms-surface);
+    border-radius: $r-modal;
+    box-shadow: $e3;
+  }
+
+  &__head { padding: $s5 $s5 $s3; }
+  &__body { padding: 0 $s5 $s5; }
+  &__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: $s2;
+    padding: $s3 $s5;
+    border-top: 1px solid var(--ms-hairline);
+    background: $muted-bg;
+    border-radius: 0 0 $r-modal $r-modal;
+  }
+}
+
+// The command palette navigates. It never acts.
+.ms-palette {
+  position: fixed;
+  top: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 620px;
+  max-width: calc(100vw - #{$s7});
+  background: var(--ms-surface);
+  border-radius: $r-modal;
+  box-shadow: $e3;
+  z-index: 170;
+  overflow: hidden;
+
+  &[hidden] { display: none; }
+
+  &__input {
+    width: 100%;
+    height: 52px;
+    padding: 0 $s5;
+    border: 0;
+    border-bottom: 1px solid var(--ms-hairline);
+    font-size: 15px;
+    font-family: inherit;
+  }
+
+  &__list { max-height: 320px; overflow: auto; padding: $s2; }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $s3;
+    padding: $s2 $s3;
+    border-radius: $r-chip;
+    cursor: pointer;
+
+    &.is-active { background: $pri-bg; color: var(--ms-pri-d); }
+  }
+}
+
+// =====================================================================================
+// Responsive, and the media the layout must survive
+// =====================================================================================
+
+@media (max-width: 1200px) {
+  .ms-idp-item { grid-template-columns: 1fr; gap: $s2; }
+  .ms-ladder__rung { grid-template-columns: 70px 1fr; }
+  .ms-ladder__state { grid-column: 1 / -1; text-align: left; }
+}
+
+// Must not break below 992px: the nav collapses into a drawer and the tables scroll.
+@media (max-width: 992px) {
+  .ms-shell { padding: $s4 $s4 $s8; }
+  .ms-nav { display: none; }
+  .ms-nav.is-open {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: var(--ms-topbar-h) auto 0 0;
+    width: 280px;
+    background: var(--ms-surface);
+    border-right: 1px solid var(--ms-hairline);
+    box-shadow: $e3;
+    padding: $s4;
+    overflow: auto;
+    z-index: 140;
+  }
+  .ms-nav__menu { position: static; box-shadow: none; border: 0; padding: 0; }
+  .ms-hero__stats { gap: $s5; }
+  .ms-drawer { width: 100vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// Where the user asks for more contrast, recessive text stops being recessive.
+@media (prefers-contrast: more) {
+  :root {
+    --ms-text-secondary: #{$ink};
+    --ms-text-recessive: #{$ink-700};
+    --ms-hairline: rgba(15, 23, 42, 0.32);
+  }
+  .ms-state, .ms-tag, .ms-funnel-pill { border-width: 2px; }
+}
+
+// Forced colours: keep the structure, drop our palette, and let the glyphs carry meaning.
+@media (forced-colors: active) {
+  .ms-state,
+  .ms-tag,
+  .ms-funnel-pill,
+  .ms-grant,
+  .ms-pill,
+  .ms-btn {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .ms-funnel-pill.is-active,
+  .ms-step.is-current,
+  .ms-tabs__tab.is-current {
+    outline: 2px solid Highlight;
+  }
+
+  .ms-bar { border: 1px solid CanvasText; }
+  .ms-bar__fill { background: CanvasText; }
+  .ms-tracks__track.is-set { background: CanvasText; }
+}
+
+@media print {
+  .ms-topbar,
+  .ms-toasts,
+  .ms-savebar,
+  .ms-drawer,
+  .ms-modal,
+  .ms-palette,
+  .ms-btn { display: none !important; }
+
+  body { background: #fff; font-size: 11px; }
+  .ms-shell { max-width: none; padding: 0; }
+  .ms-card, .ms-row, .ms-table-wrap { break-inside: avoid; box-shadow: none; }
+  .ms-table-wrap { max-height: none; overflow: visible; }
+  .ms-table thead th { position: static; }
+
+  // The reason a figure reads the way it does has to survive onto paper.
+  .ms-sampled, .ms-refusal { border: 1px solid #000; }
+}
+
+// A viewer who prefers dark is given the light interface as designed: this product is
+// light mode only, and a half-translated dark theme would fail contrast in places
+// nobody would check.
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: light; }
+}

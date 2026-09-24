@@ -1,0 +1,187 @@
+@model WizardViewModel
+@{
+    ViewData["Title"] = "Eligible pool";
+    var cycle = Model.Detail.Cycle!;
+    var pool = Model.Pool;
+}
+
+@await Html.PartialAsync("_Wizard", Model)
+
+<div class="ms-split" data-criteria
+     data-preview-url="@Url.Action("PoolPreview", new { cycleId = cycle.CycleId })">
+
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">Who this cycle is about</h3>
+            <span class="ms-topbar__spacer"></span>
+            @if (Model.CanWrite)
+            {
+                <form method="post" asp-action="SaveCriterionSet" class="ms-inline">
+                    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                    <input type="hidden" name="setModeCode" value="ALL" />
+                    <button type="submit" class="ms-btn ms-btn--sm" data-add-set>Add a set</button>
+                </form>
+            }
+        </div>
+
+        <div class="ms-card__body">
+            @if (Model.Detail.CriterionSets.Count == 0)
+            {
+                @await Html.PartialAsync("_EmptyState",
+                    ("No criteria yet",
+                     "Without a criterion the pool would be the whole roster. Add a set, then the conditions that describe who belongs in this cycle.",
+                     (string?)null, (string?)null))
+            }
+
+            @foreach (var set in Model.Detail.CriterionSets)
+            {
+                var conditions = Model.Detail.Criteria.Where(c => c.CriterionSetId == set.CriterionSetId).ToList();
+                var reach = pool?.Sets.FirstOrDefault(s => s.SetLabel == set.SetLabel);
+
+                @if (set.SetJoinCode is not null)
+                {
+                    <div class="ms-set__join">
+                        <form method="post" asp-action="SaveCriterionSet" class="ms-inline">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <input type="hidden" name="criterionSetId" value="@set.CriterionSetId" />
+                            <input type="hidden" name="setModeCode" value="@set.SetModeCode" />
+                            <select class="ms-select ms-select--inline" name="setJoinCode" data-set-join
+                                    disabled="@(!Model.CanWrite)" aria-label="How this set joins the ones before it">
+                                @foreach (var join in Model.SetJoins)
+                                {
+                                    <option value="@join.ValueCode" selected="@(join.ValueCode == set.SetJoinCode)">@join.Name</option>
+                                }
+                            </select>
+                        </form>
+                    </div>
+                }
+
+                <div class="ms-set">
+                    <div class="ms-set__head">
+                        <span class="ms-set__label">Set @set.SetLabel</span>
+
+                        @* The mode selector is shown even when there is only one set:
+                           one set with "any one" is a legitimate rule. *@
+                        <form method="post" asp-action="SaveCriterionSet" class="ms-inline">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <input type="hidden" name="criterionSetId" value="@set.CriterionSetId" />
+                            <select class="ms-select ms-select--inline" name="setModeCode" data-set-mode
+                                    disabled="@(!Model.CanWrite)" aria-label="How the conditions in this set combine">
+                                @foreach (var mode in Model.SetModes)
+                                {
+                                    <option value="@mode.ValueCode" selected="@(mode.ValueCode == set.SetModeCode)">@mode.Name</option>
+                                }
+                            </select>
+                            <span>of</span>
+                        </form>
+
+                        @if (reach is not null)
+                        {
+                            <span class="ms-set__reach">
+                                @(reach.Reach?.ToString("N0") ?? "—") reach
+                            </span>
+                        }
+
+                        @if (Model.CanWrite)
+                        {
+                            <form method="post" asp-action="DeleteCriterionSet" class="ms-inline"
+                                  data-confirm="Remove set @set.SetLabel and its conditions?">
+                                <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                                <input type="hidden" name="criterionSetId" value="@set.CriterionSetId" />
+                                <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost" data-remove-set>Remove</button>
+                            </form>
+                        }
+                    </div>
+
+                    <div class="ms-set__body">
+                        @foreach (var condition in conditions)
+                        {
+                            <form class="ms-condition" method="post" asp-action="SaveCriterion" data-condition-row>
+                                <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                                <input type="hidden" name="criterionSetId" value="@set.CriterionSetId" />
+                                <input type="hidden" name="criterionId" value="@condition.CriterionId" />
+
+                                <select class="ms-select ms-condition__field" name="rosterFieldId" data-field
+                                        disabled="@(!Model.CanWrite)" aria-label="Field">
+                                    @foreach (var field in Model.Fields)
+                                    {
+                                        <option value="@field.RosterFieldId"
+                                                data-data-type="@field.DataType"
+                                                data-proposed-operator="@(field.DataType == "number" ? "GE" : field.DataType == "date" ? "IS_RECORDED" : "EQ")"
+                                                selected="@(field.RosterFieldId == condition.RosterFieldId)">
+                                            @field.Caption
+                                        </option>
+                                    }
+                                </select>
+
+                                <select class="ms-select ms-condition__op" name="operatorCode" data-operator
+                                        disabled="@(!Model.CanWrite)" aria-label="Comparison">
+                                    @foreach (var op in Model.Operators)
+                                    {
+                                        <option value="@op.OperatorCode"
+                                                data-applies-to="@op.AppliesTo"
+                                                data-arity="@op.Arity"
+                                                data-list="@((op.OperatorCode is "IN" or "NOTIN").ToString().ToLowerInvariant())"
+                                                selected="@(op.OperatorCode == condition.OperatorCode)">
+                                            @op.Name
+                                        </option>
+                                    }
+                                </select>
+
+                                <input class="ms-input ms-condition__value" name="value1" data-value1
+                                       value="@condition.Value1" disabled="@(!Model.CanWrite)" aria-label="Value" />
+                                <input class="ms-input ms-condition__value" name="value2" data-value2
+                                       value="@condition.Value2" disabled="@(!Model.CanWrite)" aria-label="Second value" />
+
+                                <span class="ms-condition__phrase ms-table__recessive" data-phrase>@condition.Phrase</span>
+                            </form>
+
+                            @if (Model.CanWrite)
+                            {
+                                <form method="post" asp-action="DeleteCriterion" class="ms-inline">
+                                    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                                    <input type="hidden" name="criterionId" value="@condition.CriterionId" />
+                                    <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost" data-remove-condition
+                                            aria-label="Remove this condition">Remove</button>
+                                </form>
+                            }
+                        }
+
+                        @if (Model.CanWrite && Model.Fields.Count > 0)
+                        {
+                            <form method="post" asp-action="SaveCriterion" class="ms-inline">
+                                <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                                <input type="hidden" name="criterionSetId" value="@set.CriterionSetId" />
+                                <input type="hidden" name="rosterFieldId" value="@Model.Fields[0].RosterFieldId" />
+                                <input type="hidden" name="operatorCode" value="IS_RECORDED" />
+                                <button type="submit" class="ms-btn ms-btn--sm" data-add-condition>Add a condition</button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.Fields.Count == 0)
+            {
+                <div class="ms-refusal">
+                    <div class="ms-refusal__title">No field has been approved for use in criteria</div>
+                    <p>
+                        Roster columns are discovered switched off. Approve the ones this cycle
+                        needs on the Roster fields screen, and they will appear here.
+                    </p>
+                    <a class="ms-btn" asp-area="Config" asp-controller="RosterFields" asp-action="Index">Roster fields</a>
+                </div>
+            }
+        </div>
+    </section>
+
+    <aside class="ms-card" data-preview>
+        @await Html.PartialAsync("_PoolDrawer", pool)
+    </aside>
+</div>
+
+@await Html.PartialAsync("_SaveBar", (Model.Todos, 2, false, "Continue"))
+
+@section Scripts {
+    <script type="module" src="~/js/criteria.js" asp-append-version="true"></script>
+}

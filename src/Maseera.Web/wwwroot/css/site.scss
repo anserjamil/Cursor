@@ -1,0 +1,14 @@
+// =====================================================================================
+// site.scss — the entry point, compiled to site.css beside it by LibSassBuilder.
+//
+// Bootstrap 5.3 is vendored as compiled CSS (css/vendor/bootstrap.min.css) and linked
+// before this file, so the layer below only overrides its custom properties and adds
+// what Maseera needs. That is overriding Bootstrap's variables rather than fighting its
+// output — and it keeps the build free of any toolchain that has to reach the network,
+// which matters on a machine that has none.
+//
+// No utility soup in Razor: a row, a chip, a pill and a tile each get a class.
+// =====================================================================================
+
+@import "../scss/maseera";
+@import "../scss/screens";

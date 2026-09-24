@@ -1,0 +1,144 @@
+@model WizardViewModel
+@{
+    ViewData["Title"] = "Development framework";
+    var cycle = Model.Detail.Cycle!;
+    var summary = Model.AttainmentSummary;
+}
+
+@await Html.PartialAsync("_Wizard", Model)
+
+<div class="ms-card">
+    <div class="ms-card__head">
+        <h3 class="ms-card__title">What this cycle asks for</h3>
+        <span class="ms-topbar__spacer"></span>
+        @if (Model.CanWrite)
+        {
+            <button type="button" class="ms-btn ms-btn--sm" data-modal-open="ms-library">From the library</button>
+        }
+    </div>
+
+    <div class="ms-card__body">
+        @if (Model.Detail.Frameworks.Count == 0)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("No framework is assigned",
+                 "Without one, nothing is being asked for and no readiness level can be measured.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            @foreach (var framework in Model.Detail.Frameworks)
+            {
+                <div class="ms-row">
+                    <div>
+                        <strong>@framework.Name</strong>
+                        <div class="ms-micro">
+                            @framework.EventCount events · @framework.LevelCount levels · version @framework.VersionNo
+                        </div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    <state-chip role="@(framework.StatusCode == "ACTIVE" ? "positive" : "neutral")"
+                                label="@framework.StatusName"></state-chip>
+                    @if (Model.CanWrite)
+                    {
+                        <form method="post" asp-action="RemoveFramework" class="ms-inline">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost">Remove</button>
+                        </form>
+                    }
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@if (Model.Attainment.Count > 0)
+{
+    <div class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">Where the pool stands against it</h3>
+            <span class="ms-topbar__spacer"></span>
+            @if (summary?.IsSampled == true && summary.SampleNote is not null)
+            {
+                @* An honest estimate beats a silent one, and beats a five-second wait. *@
+                <span class="ms-sampled">@summary.SampleNote</span>
+            }
+        </div>
+
+        <div class="ms-card__body">
+            @if (summary is not null)
+            {
+                <p class="ms-hero__sub">
+                    @if (summary.MedianAttainment is { } median)
+                    {
+                        @:Half the pool has finished @median.ToString("0")% of this framework or more.
+                    }
+                    <span class="ms-num">@summary.ClearAllMandatory.ToString("N0")</span>
+                    of <span class="ms-num">@summary.PoolCount.ToString("N0")</span>
+                    clear every mandatory item.
+                </p>
+            }
+
+            @* Worst first: the requirement nobody has met is the one to look at. *@
+            @foreach (var item in Model.Attainment)
+            {
+                <div class="ms-row">
+                    <div class="ms-attain__name">
+                        <ms-code>@item.EventCode</ms-code> @item.EventName
+                        @if (item.IsMust)
+                        {
+                            <span class="ms-tag" title="Not meeting this disqualifies outright">Must</span>
+                        }
+                        <div class="ms-micro">@item.RuleText</div>
+                    </div>
+
+                    <ms-bar value="@(item.PoolCount == 0 ? 0 : 100.0 * item.MetCount / item.PoolCount)"
+                            label="@item.MetCount of @item.PoolCount"></ms-bar>
+
+                    @* Every count clicks through to the people it counted. *@
+                    <a class="ms-attain__count" data-drawer-open="ms-drawer"
+                       data-src="@Url.Action("AppliesTo", "DevFramework", new { area = "Config", cycleId = cycle.CycleId, itemCode = item.ItemCode })"
+                       href="#">
+                        <share-text count="@item.MetCount" total="@item.PoolCount" with-count="true"></share-text>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@await Html.PartialAsync("_SaveBar", (Model.Todos, 3, false, "Continue"))
+
+<div class="ms-modal" id="ms-library" hidden role="dialog" aria-modal="true">
+    <div class="ms-modal__panel">
+        <div class="ms-modal__head">
+            <strong>Assign a framework</strong>
+            <p class="ms-hero__sub">Active frameworks only. A draft cannot be assigned to a cycle.</p>
+        </div>
+        <div class="ms-modal__body">
+            @foreach (var framework in Model.Library.Where(f => f.StatusCode == "ACTIVE"))
+            {
+                <form method="post" asp-action="AssignFramework" class="ms-row">
+                    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                    <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                    <div>
+                        <strong>@framework.Name</strong>
+                        <div class="ms-micro">
+                            @framework.EventCount events · @framework.LevelCount levels
+                            @if (framework.MixtureModelName is not null)
+                            {
+                                @:· @framework.MixtureModelName
+                            }
+                        </div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Assign</button>
+                </form>
+            }
+        </div>
+        <div class="ms-modal__foot">
+            <button type="button" class="ms-btn" data-close>Close</button>
+        </div>
+    </div>
+</div>

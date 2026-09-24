@@ -1,0 +1,11 @@
+# Build output
+bin/
+obj/
+*.user
+
+# The Sass compiler writes these; site.css is generated from wwwroot/css/site.scss.
+src/Maseera.Web/wwwroot/css/site.css
+src/Maseera.Web/wwwroot/css/site.css.map
+
+# Serilog's rolling file sink
+src/Maseera.Web/logs/

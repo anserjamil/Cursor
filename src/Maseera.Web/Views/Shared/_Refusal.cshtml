@@ -1,0 +1,11 @@
+@{
+    Layout = ViewData["Layout"] as string ?? "_Layout";
+    var title = ViewData["RefusalTitle"] as string ?? "This could not be shown";
+    var sentence = ViewData["RefusalSentence"] as string ?? Model as string;
+}
+@* A refusal is a designed state, so it is a sentence on a panel — never an empty table
+   and never a zero. *@
+<div class="ms-refusal" role="alert">
+    <div class="ms-refusal__title">@title</div>
+    <p>@sentence</p>
+</div>

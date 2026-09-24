@@ -1,0 +1,140 @@
+@model IdpViewModel
+
+@*
+   Bulk booking: pick the session once, tick who goes, book them in one action. The
+   per-person control on the By person tab stays as the exception, not the route.
+*@
+<div class="ms-booking" data-book-scope>
+    <div class="ms-toolbar">
+        <form method="get" class="ms-inline">
+            <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+            <input type="hidden" name="tab" value="booking" />
+            <select class="ms-select" name="devEventId" aria-label="Event">
+                <option value="">Every event with something open</option>
+                @foreach (var ev in Model.Board?.ByEvent ?? [])
+                {
+                    <option value="@ev.DevEventId" selected="@(ev.DevEventId == Model.DevEventId)">
+                        @ev.EventCode — @ev.EventName (@ev.PeopleOpen open)
+                    </option>
+                }
+            </select>
+            <input type="search" class="ms-input" name="q" value="@Model.Search"
+                   placeholder="Search people" aria-label="Search people" />
+            <button type="submit" class="ms-btn ms-btn--sm">Apply</button>
+        </form>
+    </div>
+
+    <div class="ms-split">
+        <section class="ms-card">
+            <div class="ms-card__head">
+                <h3 class="ms-card__title">Who still needs it</h3>
+                <span class="ms-topbar__spacer"></span>
+                <span class="ms-micro">@Model.Requirements.Count shown of @Model.RequirementTotal</span>
+            </div>
+            <div class="ms-card__body">
+                @if (Model.Requirements.Count == 0)
+                {
+                    <p class="ms-table__recessive">Nothing is outstanding for this event.</p>
+                }
+
+                <label class="ms-check">
+                    <input type="checkbox"
+                           onchange="this.closest('.ms-card').querySelectorAll('input[data-idp-select]').forEach(c=>{c.checked=this.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})" />
+                    Select everyone listed
+                </label>
+
+                @foreach (var requirement in Model.Requirements)
+                {
+                    <label class="ms-row">
+                        <input type="checkbox" data-idp-select value="@requirement.PersonnelNo" />
+                        <div>
+                            <strong>@requirement.FullName</strong>
+                            <div class="ms-micro">
+                                <ms-code>@requirement.PersonnelNo</ms-code> · @requirement.OrgName
+                            </div>
+                            <div class="ms-idp-item__sources">
+                                @requirement.EventName
+                                <span class="ms-idp-item__code">@requirement.ItemCode</span>
+                                · asked for by @requirement.Sources
+                            </div>
+                        </div>
+                        <span class="ms-topbar__spacer"></span>
+                        @if (requirement.SessionCode is not null)
+                        {
+                            <span class="ms-state ms-state--info">@requirement.SessionCode</span>
+                        }
+                        else if (requirement.PencilledDate is not null)
+                        {
+                            <span class="ms-state ms-state--warning">Pencilled @AsOf.Date(requirement.PencilledDate)</span>
+                        }
+                        else if (requirement.CoverageDays is > 0)
+                        {
+                            <span class="ms-state ms-state--info">@requirement.CoverageDays days coverage</span>
+                        }
+                        else
+                        {
+                            <span class="ms-state ms-state--neutral">Open</span>
+                        }
+                    </label>
+                }
+            </div>
+        </section>
+
+        <aside class="ms-card">
+            <div class="ms-card__head"><h3 class="ms-card__title">Sessions</h3></div>
+            <div class="ms-card__body">
+                @if (Model.Sessions.Count == 0)
+                {
+                    @await Html.PartialAsync("_EmptyState",
+                        ("No session is scheduled",
+                         "With nothing to book onto, the plan can still be made by pencilling in a date on the By person tab.",
+                         (string?)null, (string?)null))
+                }
+
+                @foreach (var session in Model.Sessions)
+                {
+                    <div class="ms-session-card @(session.SeatsLeft is <= 0 ? "is-full" : "")"
+                         data-book-session="@session.DevSessionId"
+                         data-seats-left="@session.SeatsLeft">
+                        <div>
+                            <strong>@session.SessionCode</strong>
+                            <div class="ms-micro">
+                                @session.EventName
+                                @if (session.StartDate is not null)
+                                {
+                                    @:· @AsOf.Window(session.StartDate, session.EndDate)
+                                }
+                                @if (session.Location is not null)
+                                {
+                                    @:· @session.Location
+                                }
+                            </div>
+                        </div>
+
+                        <div class="ms-session-card__seats">
+                            @if (session.Seats is null)
+                            {
+                                <span class="ms-micro">No seat limit</span>
+                            }
+                            else
+                            {
+                                <span class="ms-num" data-seats-left>@session.SeatsLeft</span>
+                                <span class="ms-micro">of @session.Seats left</span>
+                            }
+                        </div>
+
+                        @if (Model.CanWrite)
+                        {
+                            <span data-over-seats hidden class="ms-state ms-state--warning">
+                                More selected than there are places
+                            </span>
+                            <button type="button" class="ms-btn ms-btn--sm ms-btn--primary" data-book-go>
+                                <span data-book-count>Book</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </aside>
+    </div>
+</div>

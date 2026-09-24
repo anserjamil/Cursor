@@ -1,0 +1,281 @@
+@model DevFrameworkViewModel
+@{
+    var editor = Model.Editor;
+    var framework = editor?.Framework;
+}
+
+<div class="ms-split">
+    <aside class="ms-split__side">
+        <div class="ms-toolbar">
+            <form method="get" class="ms-toolbar__search">
+                <input type="hidden" name="tab" value="frameworks" />
+                <input type="search" name="q" value="@Model.Search" class="ms-input"
+                       placeholder="Search frameworks" aria-label="Search frameworks" />
+                <button type="submit" class="ms-btn ms-btn--sm">Find</button>
+            </form>
+        </div>
+
+        <nav class="ms-list" aria-label="Frameworks">
+            @foreach (var f in Model.Frameworks)
+            {
+                <a class="ms-list__item @(Model.SelectedId == f.DevFrameworkId ? "is-current" : "")"
+                   asp-action="Index" asp-route-tab="frameworks" asp-route-id="@f.DevFrameworkId">
+                    <div>
+                        <strong>@f.Name</strong>
+                        <state-chip role="@f.StatusRole" label="@f.StatusName"></state-chip>
+                    </div>
+                    <div class="ms-micro">
+                        <ms-code>@f.FrameworkCode</ms-code> · version @f.VersionNo ·
+                        @f.EventCount.ToString("N0") requirements
+                        @if (f.UsesLevels)
+                        {
+                            <text>across @f.LevelCount.ToString("N0") levels</text>
+                        }
+                    </div>
+                    @if (f.CycleCount > 0)
+                    {
+                        <div class="ms-micro" title="Changing it changes what those cycles ask for">
+                            Used by @f.CycleCount.ToString("N0") @(f.CycleCount == 1 ? "cycle" : "cycles")
+                        </div>
+                    }
+                </a>
+            }
+        </nav>
+
+        @if (Model.CanWrite)
+        {
+            <form method="post" asp-action="SaveFramework" class="ms-form ms-form--compact">
+                <h4 class="ms-micro">A new framework</h4>
+                <input name="frameworkCode" class="ms-input" placeholder="Code" required maxlength="40" />
+                <input name="name" class="ms-input" placeholder="Name" required maxlength="200" />
+                <input type="hidden" name="statusCode" value="DRAFT" />
+                <label class="ms-check">
+                    <input type="checkbox" name="usesLevels" value="true" checked /> Uses levels
+                </label>
+                <select name="mixtureModelId" class="ms-select" aria-label="Mixture model">
+                    <option value="">No mixture model</option>
+                    @foreach (var mix in Model.MixtureModels)
+                    {
+                        <option value="@mix.MixtureModelId">@mix.Name</option>
+                    }
+                </select>
+                <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Create as a draft</button>
+            </form>
+        }
+    </aside>
+
+    <section class="ms-split__main">
+        @if (framework is null)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Choose a framework",
+                 "A framework is the list of what a level asks for, and what each requirement is worth.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            <div class="ms-card">
+                <div class="ms-card__head">
+                    <div>
+                        <ms-code>@framework.FrameworkCode</ms-code>
+                        <h3 class="ms-card__title">@framework.Name</h3>
+                    </div>
+                    <state-chip role="@(framework.StatusCode == "ACTIVE" ? "success" : "neutral")"
+                                label="@framework.StatusName"></state-chip>
+                    <span class="ms-topbar__spacer"></span>
+                    <span class="ms-micro">version @framework.VersionNo</span>
+                </div>
+
+                <div class="ms-card__body">
+                    @if (framework.Description is not null)
+                    {
+                        <p class="ms-sentence">@framework.Description</p>
+                    }
+
+                    <dl class="ms-facts">
+                        <div>
+                            <dt>Weight in total</dt>
+                            <dd>
+                                <span class="ms-num">@(framework.WeightTotal?.ToString("0.##") ?? "0")</span>
+                                @if (framework.WeightTarget is { } target)
+                                {
+                                    <span class="ms-micro">against a target of @target.ToString("0.##")</span>
+                                }
+                            </dd>
+                        </div>
+                        <div><dt>Levels</dt><dd>@(framework.UsesLevels ? "Yes" : "One level only")</dd></div>
+                        <div><dt>Mixture model</dt><dd>@(framework.MixtureModelName ?? "None")</dd></div>
+                        <div><dt>Retired</dt><dd><as-of-date value="@framework.RetiredOn"></as-of-date></dd></div>
+                    </dl>
+
+                    @if (Model.CanWrite)
+                    {
+                        <div class="ms-card__foot">
+                            <form method="post" asp-action="DuplicateFramework" class="ms-inline-form">
+                                <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                                <input name="newCode" class="ms-input ms-input--sm" placeholder="New code" required />
+                                <input name="newName" class="ms-input ms-input--sm" placeholder="New name" required />
+                                <button type="submit" class="ms-btn ms-btn--sm"
+                                        title="Copy it as a draft rather than changing one in use">Duplicate</button>
+                            </form>
+                            <form method="post" asp-action="RetireFramework" class="ms-inline-form">
+                                <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                                <button type="submit" class="ms-btn ms-btn--sm">Retire</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @* ---- the mixture against the model, with the gap named ---------------- *@
+            @if (editor!.Mixture.Count > 0)
+            {
+                <div class="ms-card">
+                    <div class="ms-card__head">
+                        <h3 class="ms-card__title">How the weight falls</h3>
+                        <span class="ms-topbar__spacer"></span>
+                        <span class="ms-micro">against @(framework.MixtureModelName ?? "the model")</span>
+                    </div>
+                    <div class="ms-card__body">
+                        @foreach (var part in editor.Mixture)
+                        {
+                            <div class="ms-mixrow @(part.WithinTolerance ? "" : "is-off")">
+                                <span class="ms-mixrow__name">@part.PartName</span>
+                                <ms-bar value="@((double)part.ActualPct)" tick="@((double?)part.TargetPct)"
+                                        label="@($"{part.PartName}: {part.ActualPct:0.#}% against a target of {part.TargetPct:0.#}%")"></ms-bar>
+                                <span class="ms-num">@part.ActualPct.ToString("0.#")%</span>
+                                <span class="ms-micro">target @part.TargetPct.ToString("0.#")%</span>
+                                @* The gap is named rather than left to be eyeballed off a bar. *@
+                                <span class="ms-micro">
+                                    @(part.Gap == 0
+                                        ? "on target"
+                                        : part.Gap > 0
+                                            ? $"{part.Gap:0.#} points over"
+                                            : $"{Math.Abs(part.Gap):0.#} points under")
+                                </span>
+                                @if (!part.WithinTolerance)
+                                {
+                                    <state-chip role="warning" label="Outside tolerance"></state-chip>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* ---- the requirements, by level ------------------------------------- *@
+            @foreach (var level in editor.Items.GroupBy(i => (i.LevelNo, i.LevelName)).OrderBy(g => g.Key.LevelNo))
+            {
+                <div class="ms-card">
+                    <div class="ms-card__head">
+                        <h3 class="ms-card__title">
+                            @(level.Key.LevelName ?? $"Level {level.Key.LevelNo}")
+                        </h3>
+                        <span class="ms-topbar__spacer"></span>
+                        <span class="ms-micro">
+                            @level.Count().ToString("N0") requirements ·
+                            weight @level.Sum(i => i.Weight).ToString("0.##") ·
+                            @level.Count(i => i.IsMust).ToString("N0") must
+                        </span>
+                        @if (Model.CanWrite && framework.UsesLevels)
+                        {
+                            <form method="post" asp-action="RemoveLevel" class="ms-inline-form">
+                                <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                                <input type="hidden" name="levelNo" value="@level.Key.LevelNo" />
+                                <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm"
+                                        title="Its requirements move to the first level rather than being lost">
+                                    Remove the level
+                                </button>
+                            </form>
+                        }
+                    </div>
+
+                    <div class="ms-card__body">
+                        <div class="ms-table-wrap">
+                            <table class="ms-table">
+                                <thead>
+                                    <tr>
+                                        <th class="is-sticky-col">Event</th>
+                                        <th>Part</th>
+                                        <th>The rule</th>
+                                        <th class="ms-table__num">Weight</th>
+                                        <th>Must</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var item in level.OrderBy(i => i.SortOrder))
+                                {
+                                    <tr class="@(item.WarnInactive || item.WarnZeroWeight ? "is-warned" : "")">
+                                        <td class="is-sticky-col">
+                                            <ms-code>@item.EventCode</ms-code>
+                                            <div>@item.EventName</div>
+                                            @if (item.WarnInactive)
+                                            {
+                                                <state-chip role="warning" label="The event is retired"></state-chip>
+                                            }
+                                        </td>
+                                        <td>@(item.PartName ?? "—")</td>
+                                        <td class="ms-rule">@(item.RuleShort ?? "Its kind's default")</td>
+                                        <td class="ms-table__num">
+                                            @item.Weight.ToString("0.##")
+                                            @if (item.WarnZeroWeight)
+                                            {
+                                                <div class="ms-micro" title="It counts for nothing in the percentage">weighs nothing</div>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (item.IsMust)
+                                            {
+                                                <span class="ms-tag" title="Not met disqualifies, whatever the percentage says">Must</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (Model.CanWrite)
+                                            {
+                                                <form method="post" asp-action="DeleteFrameworkItem" class="ms-inline-form">
+                                                    <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                                                    <input type="hidden" name="devFrameworkItemId" value="@item.DevFrameworkItemId" />
+                                                    <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm">Remove</button>
+                                                </form>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (Model.CanWrite)
+            {
+                <div class="ms-card">
+                    <div class="ms-card__head"><h3 class="ms-card__title">Add a requirement</h3></div>
+                    <div class="ms-card__body">
+                        <form method="post" asp-action="SaveFrameworkItem" class="ms-set__add">
+                            <input type="hidden" name="devFrameworkId" value="@framework.DevFrameworkId" />
+                            <select name="devEventId" class="ms-select" required aria-label="Event">
+                                @foreach (var e in Model.Events)
+                                {
+                                    <option value="@e.DevEventId">@e.EventCode — @e.Name</option>
+                                }
+                            </select>
+                            <input name="levelNo" type="number" min="1" value="1" class="ms-input ms-input--sm"
+                                   aria-label="Level" required />
+                            <input name="levelName" class="ms-input ms-input--sm" placeholder="Level name"
+                                   aria-label="Level name" />
+                            <input name="weight" type="number" step="0.01" min="0" value="1"
+                                   class="ms-input ms-input--sm" aria-label="Weight" required />
+                            <label class="ms-check">
+                                <input type="checkbox" name="isMust" value="true" /> Must
+                            </label>
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Add</button>
+                        </form>
+                    </div>
+                </div>
+            }
+        }
+    </section>
+</div>

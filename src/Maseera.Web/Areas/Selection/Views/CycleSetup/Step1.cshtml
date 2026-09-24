@@ -1,0 +1,116 @@
+@model WizardViewModel
+@{
+    ViewData["Title"] = "The cycle";
+    var cycle = Model.Detail.Cycle!;
+}
+
+@await Html.PartialAsync("_Wizard", Model)
+
+<form method="post" asp-action="SaveCycle">
+    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+
+    <div class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">The cycle</h3></div>
+        <div class="ms-card__body">
+            <div class="ms-field-row">
+                <label class="ms-field">
+                    <span class="ms-field__label">Code</span>
+                    @if (Model.CanWrite)
+                    {
+                        <input class="ms-input" name="cycleCode" value="@cycle.CycleCode" required />
+                    }
+                    else
+                    {
+                        <span class="ms-readonly-value ms-code">@cycle.CycleCode</span>
+                        <input type="hidden" name="cycleCode" value="@cycle.CycleCode" />
+                    }
+                </label>
+
+                <label class="ms-field">
+                    <span class="ms-field__label">Name</span>
+                    @if (Model.CanWrite)
+                    {
+                        <input class="ms-input" name="name" value="@cycle.Name" required />
+                    }
+                    else
+                    {
+                        <span class="ms-readonly-value">@cycle.Name</span>
+                        <input type="hidden" name="name" value="@cycle.Name" />
+                    }
+                </label>
+            </div>
+
+            <div class="ms-field-row">
+                <label class="ms-field">
+                    <span class="ms-field__label">Start</span>
+                    <input class="ms-input" type="date" name="startDate"
+                           value="@cycle.StartDate?.ToString("yyyy-MM-dd")" disabled="@(!Model.CanWrite)" />
+                </label>
+                <label class="ms-field">
+                    <span class="ms-field__label">End</span>
+                    <input class="ms-input" type="date" name="endDate"
+                           value="@cycle.EndDate?.ToString("yyyy-MM-dd")" disabled="@(!Model.CanWrite)" />
+                    <span class="ms-field__hint">
+                        Setting both schedules every undated process and stage in order. A window
+                        you set by hand is never overwritten.
+                    </span>
+                </label>
+            </div>
+
+            <div class="ms-field-row">
+                <label class="ms-field">
+                    <span class="ms-field__label">Owner</span>
+                    <input class="ms-input" name="ownerLogin" value="@cycle.OwnerLogin"
+                           list="ms-directory" disabled="@(!Model.CanWrite)" />
+                </label>
+                <label class="ms-field">
+                    <span class="ms-field__label">Delegate</span>
+                    <input class="ms-input" name="delegateLogin" value="@cycle.DelegateLogin"
+                           list="ms-directory" disabled="@(!Model.CanWrite)" />
+                    <span class="ms-field__hint">A delegate may change this design as though it were theirs.</span>
+                </label>
+            </div>
+
+            @if (cycle.AsksJobSuffix)
+            {
+                <div class="ms-field-row">
+                    <label class="ms-field">
+                        <span class="ms-field__label">Incumbent suffix</span>
+                        <input class="ms-input ms-code" name="incumbentSuffix"
+                               value="@cycle.IncumbentSuffix" disabled="@(!Model.CanWrite)" />
+                    </label>
+                    <label class="ms-field">
+                        <span class="ms-field__label">Successor suffix</span>
+                        <input class="ms-input ms-code" name="successorSuffix"
+                               value="@cycle.SuccessorSuffix" disabled="@(!Model.CanWrite)" />
+                    </label>
+                </div>
+            }
+
+            <div class="ms-field-row">
+                <label class="ms-field">
+                    <span class="ms-field__label">Existing pool to carry in</span>
+                    <input class="ms-input ms-code" name="existingPoolCode"
+                           value="@cycle.ExistingPoolCode" disabled="@(!Model.CanWrite)" />
+                    <span class="ms-field__hint">
+                        Matched on the cycle's end year less one, and on the successor suffix.
+                    </span>
+                </label>
+                <label class="ms-field ms-field--check">
+                    <input type="checkbox" name="activeMembersOnly" value="true"
+                           checked="@cycle.ActiveMembersOnly" disabled="@(!Model.CanWrite)" />
+                    <span>Active members only</span>
+                </label>
+            </div>
+
+            <label class="ms-field">
+                <span class="ms-field__label">Notes</span>
+                <textarea class="ms-textarea" name="notes" disabled="@(!Model.CanWrite)">@cycle.Notes</textarea>
+            </label>
+        </div>
+    </div>
+
+    @await Html.PartialAsync("_SaveBar", (Model.Todos, 1, Model.CanWrite, "Save and continue"))
+</form>
+
+<datalist id="ms-directory"></datalist>

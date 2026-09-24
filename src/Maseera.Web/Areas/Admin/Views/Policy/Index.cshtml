@@ -1,0 +1,277 @@
+@model PolicyViewModel
+@{
+    ViewData["Title"] = "Access";
+    var groups = Model.Screens
+        .GroupBy(s => (s.GroupCaption, s.GroupSort))
+        .OrderBy(g => g.Key.GroupSort ?? int.MaxValue)
+        .ThenBy(g => g.Key.GroupCaption)
+        .ToList();
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Administration</div>
+    <div class="ms-hero__line">Who may open what, and why.</div>
+    <p class="ms-hero__sub">
+        Access is decided by six rules applied in order. The first one that answers wins,
+        and every denial can be traced to exactly one of them — which is the difference
+        between a rule and a mystery.
+    </p>
+</div>
+
+@* ---- the six rules, numbered, in the order the engine applies them ------------- *@
+<section class="ms-card">
+    <div class="ms-card__head"><h2 class="ms-card__title">The order the rules are applied in</h2></div>
+    <div class="ms-card__body">
+        <ol class="ms-rules">
+            @foreach (var (code, title, explanation) in AccessRules.Ordered)
+            {
+                <li class="ms-rules__item">
+                    <strong>@title</strong>
+                    <ms-code>@code</ms-code>
+                    <div class="ms-micro">@explanation</div>
+                </li>
+            }
+        </ol>
+        <p class="ms-sentence ms-sentence--muted">
+            A grant is one of four states, and "no rule" is one of them rather than an
+            empty cell: <span class="@Grants.CssClass(Grants.Write)">@Grants.Word(Grants.Write)</span>,
+            <span class="@Grants.CssClass(Grants.Read)">@Grants.Word(Grants.Read)</span>,
+            <span class="@Grants.CssClass(Grants.Deny)">@Grants.Word(Grants.Deny)</span>,
+            <span class="@Grants.CssClass(null)">@Grants.Word(null)</span>. A read-only
+            role stays read-only whatever a grant says: no grant can give it write.
+        </p>
+    </div>
+</section>
+
+@* ---- the grant matrix ---------------------------------------------------------- *@
+<section class="ms-card">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">Roles against screens</h2>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">@Model.Screens.Count.ToString("N0") screens · @Model.Roles.Count.ToString("N0") roles</span>
+    </div>
+    <div class="ms-card__body">
+        <div class="ms-table-wrap">
+            <table class="ms-table ms-matrix">
+                <thead>
+                    <tr>
+                        <th class="is-sticky-col">Screen</th>
+                        @foreach (var role in Model.Roles.OrderBy(r => r.SortOrder))
+                        {
+                            <th class="ms-matrix__role">
+                                @role.Name
+                                <div class="ms-micro"><ms-code>@role.RoleCode</ms-code></div>
+                                @if (role.IsReadOnly)
+                                {
+                                    <div class="ms-tag" title="No grant can give this role write">Read only</div>
+                                }
+                                <div class="ms-micro">@role.UserCount.ToString("N0") people</div>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var group in groups)
+                {
+                    <tr class="ms-matrix__group">
+                        <th class="is-sticky-col" colspan="@(Model.Roles.Count + 1)">
+                            @(group.Key.GroupCaption ?? "Not in any menu")
+                        </th>
+                    </tr>
+
+                    @foreach (var screen in group.OrderBy(s => s.SortOrder))
+                    {
+                        <tr>
+                            <td class="is-sticky-col">
+                                @screen.Name
+                                <div class="ms-micro"><ms-code>@screen.ScreenCode</ms-code></div>
+                                @if (!screen.IsInMenu)
+                                {
+                                    <span class="ms-tag" title="Reachable, but not listed in the navigation">Not in the menu</span>
+                                }
+                            </td>
+                            @foreach (var role in Model.Roles.OrderBy(r => r.SortOrder))
+                            {
+                                var grant = Model.Grant(role.RoleId, screen.ScreenId);
+                                <td class="ms-matrix__cell">
+                                    @* The word is in the cell as well as the fill, so the
+                                       matrix reads in greyscale and under forced colours. *@
+                                    <span class="@Grants.CssClass(grant)"
+                                          title="@($"{role.Name} on {screen.Name}: {Grants.Word(grant)}")">
+                                        @Grants.Word(grant)
+                                    </span>
+                                </td>
+                            }
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@* ---- the people, and what each resolves to ------------------------------------- *@
+<section class="ms-card">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">People</h2>
+        <span class="ms-topbar__spacer"></span>
+        <form method="get" class="ms-inline-form">
+            <input type="hidden" name="explain" value="@Model.ExplainLogin" />
+            <input type="search" name="q" value="@Model.Search" class="ms-input ms-input--sm"
+                   placeholder="Search people" aria-label="Search people" />
+            <button type="submit" class="ms-btn ms-btn--sm">Find</button>
+        </form>
+    </div>
+    <div class="ms-card__body">
+        <div class="ms-table-wrap" data-table>
+            <table class="ms-table">
+                <thead>
+                    <tr>
+                        <th class="is-sticky-col">Login</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Standing</th>
+                        <th class="ms-table__num">Overrides</th>
+                        <th class="ms-table__num">Organisations</th>
+                        <th class="ms-table__num">People in scope</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var user in Model.Users)
+                {
+                    <tr class="@(Model.ExplainLogin == user.LoginName ? "is-selected" : "") @(user.IsActive ? "" : "is-muted")">
+                        <td class="is-sticky-col"><ms-code>@user.LoginName</ms-code></td>
+                        <td>
+                            @user.DisplayName
+                            @if (user.IsBootstrap)
+                            {
+                                <span class="ms-tag" title="The seeded administrator, so a fresh database is always reachable">Bootstrap</span>
+                            }
+                        </td>
+                        <td>@(user.RoleName ?? "No role")</td>
+                        <td>
+                            @if (user.AuthorizationNote is not null)
+                            {
+                                <state-chip role="@user.AuthorizationRole" label="@user.AuthorizationNote"></state-chip>
+                            }
+                            @if (user.AuthorizationEndsOn is { } ends)
+                            {
+                                <div class="ms-micro">until <as-of-date value="@ends"></as-of-date></div>
+                            }
+                        </td>
+                        <td class="ms-table__num">@user.OverrideCount.ToString("N0")</td>
+                        <td class="ms-table__num">@user.OrgGrantCount.ToString("N0")</td>
+                        <td class="ms-table__num" title="Through the organisation closure, not just the granted nodes">
+                            @user.OrgScopeCount.ToString("N0")
+                        </td>
+                        <td>
+                            <a class="ms-btn ms-btn--sm" asp-action="Index" asp-route-explain="@user.LoginName"
+                               asp-route-q="@Model.Search">Explain</a>
+                            <a class="ms-btn ms-btn--sm" asp-controller="Rls" asp-action="Index"
+                               asp-route-compare="@user.LoginName">Scope</a>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@* ---- the explanation for one login, rule by rule ------------------------------- *@
+@if (Model.ExplainLogin is not null)
+{
+    <section class="ms-card ms-card--feature">
+        <div class="ms-card__head">
+            <h2 class="ms-card__title">What <ms-code>@Model.ExplainLogin</ms-code> resolves to</h2>
+            <span class="ms-topbar__spacer"></span>
+            <span class="ms-micro">every registered screen, and the rule that decided it</span>
+        </div>
+        <div class="ms-card__body">
+            @if (Model.Explanation.Count == 0)
+            {
+                <p class="ms-sentence ms-sentence--warn">
+                    There is no user record for that login, so rule 2 denies every screen
+                    before anything else is considered.
+                </p>
+            }
+            else
+            {
+                <div class="ms-table-wrap">
+                    <table class="ms-table">
+                        <thead>
+                            <tr>
+                                <th class="is-sticky-col">Screen</th>
+                                <th>Group</th>
+                                <th>Resolves to</th>
+                                <th>Because of</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in Model.Explanation)
+                        {
+                            @* The rule number is the one the engine applied, not a guess
+                               made here: sec.fn_ScreenAccessRule returned the code. *@
+                            var index = AccessRules.Ordered.ToList().FindIndex(r => r.Code == row.RuleCode);
+                            var rule = index >= 0 ? AccessRules.Ordered[index] : (row.RuleCode, row.RuleCode, "");
+
+                            <tr>
+                                <td class="is-sticky-col">
+                                    @row.Name
+                                    <div class="ms-micro"><ms-code>@row.ScreenCode</ms-code></div>
+                                </td>
+                                <td>@(row.GroupCaption ?? "—")</td>
+                                <td>
+                                    <span class="@Grants.CssClass(row.GrantValue)">@Grants.Word(row.GrantValue)</span>
+                                </td>
+                                <td>
+                                    @if (index >= 0)
+                                    {
+                                        <span class="ms-num">@(index + 1)</span>
+                                    }
+                                    <strong>@rule.Item2</strong>
+                                    <div class="ms-micro">@rule.Item3</div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @* The overrides that took part, so rule 4 is not an invisible hand. *@
+            @{
+                var overrides = Model.Overrides.Where(o => o.LoginName == Model.ExplainLogin).ToList();
+            }
+            @if (overrides.Count > 0)
+            {
+                <h3 class="ms-micro">Grants set against this person</h3>
+                <div class="ms-table-wrap">
+                    <table class="ms-table ms-table--tight">
+                        <thead>
+                            <tr><th>Screen</th><th>Grant</th><th>Why</th><th>Set by</th><th>When</th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var row in overrides)
+                        {
+                            <tr>
+                                <td>@row.ScreenName <div class="ms-micro"><ms-code>@row.ScreenCode</ms-code></div></td>
+                                <td><span class="@Grants.CssClass(row.GrantValue)">@Grants.Word(row.GrantValue)</span></td>
+                                <td>@(row.Note ?? "—")</td>
+                                <td class="ms-code">@(row.GrantedByLogin ?? "—")</td>
+                                <td class="ms-micro">@row.GrantedOnUtc.ToString("yyyy-MM-dd")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

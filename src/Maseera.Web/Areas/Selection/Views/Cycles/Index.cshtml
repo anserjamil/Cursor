@@ -1,0 +1,157 @@
+@model CyclesIndexViewModel
+@{
+    ViewData["Title"] = "Cycles";
+}
+
+<div class="ms-hero">
+    <div class="ms-hero__eyebrow">Succession</div>
+    <div class="ms-hero__line">The cycles you can see, and what each is waiting on.</div>
+    <p class="ms-hero__sub">
+        Every figure below is counted inside the organisations you have been granted, so
+        two people looking at the same cycle will not see the same numbers.
+    </p>
+
+    <div class="ms-hero__stats">
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.ActiveCount.ToString("N0")</div>
+            <div class="ms-stat__label">Active</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.DraftCount.ToString("N0")</div>
+            <div class="ms-stat__label">In design</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.InPoolTotal.ToString("N0")</div>
+            <div class="ms-stat__label">In the pool</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.HighPotentialTotal.ToString("N0")</div>
+            <div class="ms-stat__label">High potential</div>
+        </div>
+    </div>
+</div>
+
+<div class="ms-toolbar">
+    <form method="get" class="ms-toolbar__search">
+        <input type="search" name="q" value="@Model.Search" class="ms-input"
+               placeholder="Search by name or code" aria-label="Search cycles" />
+        <select name="status" class="ms-select" aria-label="Status">
+            <option value="">Every status</option>
+            <option value="ACTIVE" selected="@(Model.StatusFilter == "ACTIVE")">Active</option>
+            <option value="DRAFT" selected="@(Model.StatusFilter == "DRAFT")">Draft</option>
+            <option value="CLOSED" selected="@(Model.StatusFilter == "CLOSED")">Closed</option>
+        </select>
+        <label class="ms-check">
+            <input type="checkbox" name="mine" value="true" checked="@Model.MineOnly" /> Mine only
+        </label>
+        <button type="submit" class="ms-btn">Apply</button>
+    </form>
+
+    <span class="ms-topbar__spacer"></span>
+
+    @if (Model.CanWrite)
+    {
+        <a class="ms-btn ms-btn--primary" asp-controller="CycleSetup" asp-action="New">New design</a>
+    }
+    <a class="ms-btn" asp-controller="CycleSetup" asp-action="Index">Cycle design list</a>
+</div>
+
+@if (Model.Cycles.Count == 0)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("No cycles yet", Model.EmptyMessage,
+         Model.CanWrite ? "New design" : null,
+         Model.CanWrite ? Url.Action("New", "CycleSetup") : null))
+}
+else
+{
+    <div class="ms-cycles">
+        @foreach (var cycle in Model.Cycles)
+        {
+            var (caption, routeKey, stageId) = Model.PrimaryAction(cycle);
+            var stages = Model.StagesByCycle.TryGetValue(cycle.CycleId, out var s) ? s : [];
+
+            <article class="ms-card ms-cycle">
+                <div class="ms-card__head">
+                    <div>
+                        <div class="ms-code">@cycle.CycleCode</div>
+                        <h3 class="ms-card__title">@cycle.Name</h3>
+                    </div>
+                    <state-chip role="@cycle.StatusRole" label="@cycle.StatusName"></state-chip>
+                    <span class="ms-topbar__spacer"></span>
+                    <span class="ms-micro">@AsOf.Window(cycle.StartDate, cycle.EndDate)</span>
+                </div>
+
+                <div class="ms-card__body">
+                    <div class="ms-cycle__people">
+                        <span class="ms-micro">Owner</span> @(cycle.OwnerName ?? cycle.OwnerLogin)
+                        @if (cycle.DelegateLogin is not null)
+                        {
+                            <span class="ms-micro">Delegate</span>
+                            @(cycle.DelegateName ?? cycle.DelegateLogin)
+                        }
+                    </div>
+
+                    @* The stage strip per process: done, active, pending. *@
+                    @foreach (var process in stages.GroupBy(x => x.ProcessName))
+                    {
+                        <div class="ms-cycle__strip">
+                            <span class="ms-micro">@process.Key</span>
+                            <span class="ms-strip">
+                                @foreach (var stage in process.OrderBy(x => x.StageSort))
+                                {
+                                    <span class="ms-strip__step is-@stage.StripState"
+                                          title="@AsOf.Window(stage.StartDate, stage.EndDate)">
+                                        @stage.StageName
+                                    </span>
+                                }
+                            </span>
+                        </div>
+                    }
+
+                    <div class="ms-cycle__figures">
+                        <div><span class="ms-num">@cycle.PoolCount.ToString("N0")</span> <span class="ms-micro">In the pool</span></div>
+                        <div><span class="ms-num">@cycle.HighPotentialCount.ToString("N0")</span> <span class="ms-micro">High potential</span></div>
+                        <div><span class="ms-num">@cycle.CriteriaCount.ToString("N0")</span> <span class="ms-micro">Criteria</span></div>
+                        <div><span class="ms-num">@cycle.LevelCount.ToString("N0")</span> <span class="ms-micro">Levels</span></div>
+                    </div>
+                </div>
+
+                <div class="ms-card__foot ms-cycle__actions">
+                    @* One primary action, into the stage the cycle is waiting on. *@
+                    @if (routeKey is not null && stageId is not null)
+                    {
+                        <a class="ms-btn ms-btn--primary" asp-controller="@routeKey" asp-action="Index"
+                           asp-route-cycleStageId="@stageId">@caption</a>
+                    }
+                    else if (cycle.StatusCode == "DRAFT" && cycle.CanEdit)
+                    {
+                        <a class="ms-btn ms-btn--primary" asp-controller="CycleSetup" asp-action="Step"
+                           asp-route-cycleId="@cycle.CycleId" asp-route-step="1">@caption</a>
+                    }
+                    else if (cycle.StatusCode is "CLOSED" or "CANCELLED" && Model.CanWrite)
+                    {
+                        <button type="button" class="ms-btn ms-btn--primary"
+                                data-modal-open="ms-modal"
+                                data-src="@Url.Action("Index", "CycleSetup")">@caption</button>
+                    }
+
+                    <a class="ms-btn" asp-controller="CycleSetup" asp-action="Step"
+                       asp-route-cycleId="@cycle.CycleId" asp-route-step="6">Design</a>
+
+                    <a class="ms-btn" asp-controller="Reports" asp-action="Index"
+                       asp-route-key="PIPELINE" asp-route-cycleId="@cycle.CycleId">Reports</a>
+
+                    <a class="ms-btn" asp-controller="Audit" asp-action="Index"
+                       asp-route-cycleId="@cycle.CycleId">Decision log</a>
+
+                    @if (cycle.EditRefusal is not null)
+                    {
+                        <span class="ms-topbar__spacer"></span>
+                        <span class="ms-micro" title="@cycle.EditRefusal">Read only</span>
+                    }
+                </div>
+            </article>
+        }
+    </div>
+}

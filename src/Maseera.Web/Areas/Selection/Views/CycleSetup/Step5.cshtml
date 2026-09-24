@@ -1,0 +1,160 @@
+@model WizardViewModel
+@{
+    ViewData["Title"] = "Stages";
+    var cycle = Model.Detail.Cycle!;
+}
+
+@await Html.PartialAsync("_Wizard", Model)
+
+<div class="ms-card">
+    <div class="ms-card__head">
+        <h3 class="ms-card__title">What runs, and when</h3>
+        <span class="ms-topbar__spacer"></span>
+        @if (Model.CanWrite)
+        {
+            <button type="button" class="ms-btn ms-btn--sm" data-modal-open="ms-performers">Who can perform a stage</button>
+        }
+    </div>
+
+    <div class="ms-card__body">
+        @foreach (var process in Model.Detail.Processes)
+        {
+            var stages = Model.Detail.Stages.Where(s => s.CycleProcessId == process.CycleProcessId).ToList();
+
+            <section class="ms-process">
+                <form method="post" asp-action="SaveProcess" class="ms-row">
+                    <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                    <input type="hidden" name="cycleProcessId" value="@process.CycleProcessId" />
+                    <input type="hidden" name="processTypeCode" value="@process.ProcessTypeCode" />
+
+                    <input class="ms-input" name="name" value="@process.Name"
+                           disabled="@(!Model.CanWrite)" aria-label="Process name" />
+                    <span class="ms-tag">@process.ProcessTypeName</span>
+                    <input class="ms-input" type="date" name="startDate"
+                           value="@process.StartDate?.ToString("yyyy-MM-dd")"
+                           disabled="@(!Model.CanWrite)" aria-label="Process start" />
+                    <input class="ms-input" type="date" name="endDate"
+                           value="@process.EndDate?.ToString("yyyy-MM-dd")"
+                           disabled="@(!Model.CanWrite)" aria-label="Process end" />
+
+                    @if (Model.CanWrite)
+                    {
+                        <button type="submit" class="ms-btn ms-btn--sm">Save</button>
+                    }
+                </form>
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="RemoveProcess" class="ms-inline"
+                          data-confirm="Remove @process.Name and its stages?">
+                        <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                        <input type="hidden" name="cycleProcessId" value="@process.CycleProcessId" />
+                        <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost">Remove the process</button>
+                    </form>
+                }
+
+                @foreach (var stage in stages)
+                {
+                    <form method="post" asp-action="SaveStage" class="ms-row ms-row--stage">
+                        <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                        <input type="hidden" name="cycleProcessId" value="@process.CycleProcessId" />
+                        <input type="hidden" name="cycleStageId" value="@stage.CycleStageId" />
+
+                        <input class="ms-input" name="name" value="@stage.Name"
+                               disabled="@(!Model.CanWrite)" aria-label="Stage name" />
+                        <input class="ms-input" type="date" name="startDate"
+                               value="@stage.StartDate?.ToString("yyyy-MM-dd")"
+                               disabled="@(!Model.CanWrite)" aria-label="Stage start" />
+                        <input class="ms-input" type="date" name="endDate"
+                               value="@stage.EndDate?.ToString("yyyy-MM-dd")"
+                               disabled="@(!Model.CanWrite)" aria-label="Stage end" />
+
+                        @* Who performs it, from the managed management-level list. *@
+                        <select class="ms-select" name="performerCode" disabled="@(!Model.CanWrite)"
+                                aria-label="Decided by">
+                            <option value="">Not set</option>
+                            @foreach (var performer in Model.Performers.Where(p => p.IsActive))
+                            {
+                                <option value="@performer.LevelCode"
+                                        selected="@(performer.LevelCode == stage.PerformerCode)">@performer.LevelName</option>
+                            }
+                        </select>
+
+                        <state-chip role="@(stage.StageState == "OPEN" ? "positive" : stage.StageState == "UNDATED" ? "warning" : "neutral")"
+                                    label="@(stage.StageState switch { "OPEN" => "open now", "CLOSED" => "closed", "FUTURE" => "not open yet", _ => "no window" })">
+                        </state-chip>
+
+                        @if (Model.CanWrite)
+                        {
+                            <button type="submit" class="ms-btn ms-btn--sm">Save</button>
+                        }
+                    </form>
+                }
+            </section>
+        }
+
+        @if (Model.CanWrite)
+        {
+            <form method="post" asp-action="SaveProcess" class="ms-row">
+                <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                <select class="ms-select" name="processTypeCode" required aria-label="Add a process">
+                    @foreach (var type in Model.ProcessTypes)
+                    {
+                        var already = Model.Detail.Processes.Any(p => p.ProcessTypeCode == type.ProcessTypeCode);
+                        <option value="@type.ProcessTypeCode" disabled="@(already && !type.AllowsRepeat)">
+                            @type.Name@(already && !type.AllowsRepeat ? " — already in this design" : "")
+                        </option>
+                    }
+                </select>
+                <button type="submit" class="ms-btn ms-btn--sm">Add a process</button>
+                <span class="ms-field__hint">
+                    Adding one splits the cycle window evenly across its stages.
+                </span>
+            </form>
+        }
+    </div>
+</div>
+
+@await Html.PartialAsync("_SaveBar", (Model.Todos, 5, false, "Continue"))
+
+<div class="ms-modal" id="ms-performers" hidden role="dialog" aria-modal="true">
+    <div class="ms-modal__panel">
+        <div class="ms-modal__head">
+            <strong>Who can perform a stage</strong>
+            <p class="ms-hero__sub">
+                Removing a title clears it from every design that used it, and those stages
+                then need a performer set again.
+            </p>
+        </div>
+        <div class="ms-modal__body">
+            @foreach (var performer in Model.Performers)
+            {
+                <div class="ms-row">
+                    <div>
+                        @performer.LevelName
+                        <div class="ms-micro">used by @performer.UsageCount stage@(performer.UsageCount == 1 ? "" : "s")</div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    @if (performer.IsActive)
+                    {
+                        <form method="post" asp-action="RemovePerformer" class="ms-inline"
+                              data-confirm="Remove @performer.LevelName? It will be cleared from @performer.UsageCount stage(s).">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <input type="hidden" name="levelCode" value="@performer.LevelCode" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--danger">Remove</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form method="post" asp-action="AddPerformer" class="ms-inline">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <input type="hidden" name="levelCode" value="@performer.LevelCode" />
+                            <button type="submit" class="ms-btn ms-btn--sm">Add back</button>
+                        </form>
+                    }
+                </div>
+            }
+        </div>
+        <div class="ms-modal__foot"><button type="button" class="ms-btn" data-close>Close</button></div>
+    </div>
+</div>

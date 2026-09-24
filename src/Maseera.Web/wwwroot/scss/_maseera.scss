@@ -1,0 +1,681 @@
+// =====================================================================================
+// _maseera.scss — a thin layer over Bootstrap 5.3.
+//
+// Bootstrap 5.3 exposes its own variables as CSS custom properties, so this overrides
+// them rather than fighting its output: set --bs-* once at the root and its components
+// inherit the palette, the type and the radii below.
+//
+// Rules of the house, applied throughout:
+//   * Colour means one thing. Success, warning and danger are states, never decoration.
+//     Categories — role names, org levels, process names — are grey.
+//   * Never signal state by hue alone: a word or a glyph carries it and the tint only
+//     repeats it.
+//   * The current thing is obvious, readable in greyscale and on a projector.
+// =====================================================================================
+
+@import "tokens";
+@import "fonts";
+
+:root {
+  // ---- Bootstrap's own variables ----------------------------------------------------
+  --bs-body-font-family: #{$font-sans};
+  --bs-body-font-size: #{$fs-body};
+  --bs-body-line-height: #{$lh-body};
+  --bs-body-color: #{$ink};
+  --bs-body-bg: #{$page};
+  --bs-border-color: #{$hairline};
+  --bs-border-radius: #{$r-input};
+  --bs-border-radius-sm: #{$r-chip};
+  --bs-border-radius-lg: #{$r-card};
+  --bs-primary: #{$pri};
+  --bs-link-color: #{$pri-d};
+  --bs-link-hover-color: #{$pri};
+  --bs-font-monospace: #{$font-mono};
+
+  // ---- Maseera's own ----------------------------------------------------------------
+  --ms-pri: #{$pri};
+  --ms-pri-bg: #{$pri-bg};
+  --ms-pri-bd: #{$pri-bd};
+  --ms-pri-d: #{$pri-d};
+
+  --ms-ink: #{$ink};
+  --ms-surface: #{$surface};
+  --ms-page: #{$page};
+  --ms-hairline: #{$hairline};
+
+  // Text tiers, resolved against the surface they sit on. A row that tints itself
+  // redefines these, so recessive text on a tinted row gets the darker tier it needs
+  // instead of failing contrast while the unselected row beside it passes.
+  --ms-text: #{$ink};
+  --ms-text-secondary: #{$ink-600};
+  --ms-text-recessive: #{$ink-500};
+
+  --ms-content-max: 1600px;
+  --ms-topbar-h: #{$topbar-h};
+}
+
+// =====================================================================================
+// Base
+// =====================================================================================
+
+body {
+  font-family: $font-sans;
+  font-size: $fs-body;
+  line-height: $lh-body;
+  color: var(--ms-text);
+  background: var(--ms-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+// Every identifier, code, microlabel and tabular figure.
+.ms-code,
+code,
+kbd,
+.ms-num {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-num { font-feature-settings: "tnum" 1; }
+
+// Uppercase, letter-spaced, ~10.5px.
+.ms-micro {
+  font-family: $font-mono;
+  font-size: $fs-micro;
+  text-transform: uppercase;
+  letter-spacing: $tracking-micro;
+  color: var(--ms-text-recessive);
+  font-weight: $fw-medium;
+}
+
+// Serif only on a hero or report line. Never in a table, a form or a button.
+.ms-serif {
+  font-family: $font-serif;
+  font-weight: $fw-regular;
+}
+
+h1, h2, h3, h4 { font-weight: $fw-semi; line-height: $lh-tight; margin: 0; }
+h1 { font-size: $fs-hero; }
+h2 { font-size: $fs-section; }
+h3 { font-size: $fs-card-title; }
+
+// Accessibility is not optional: a visible focus ring on every control.
+:focus-visible {
+  outline: 2px solid var(--ms-pri);
+  outline-offset: 2px;
+  border-radius: $r-chip;
+}
+
+// =====================================================================================
+// Shell
+// =====================================================================================
+
+.ms-topbar {
+  height: var(--ms-topbar-h);
+  background: var(--ms-surface);
+  border-bottom: 1px solid var(--ms-hairline);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: $s4;
+  padding: 0 $gutter;
+
+  &__brand {
+    font-weight: $fw-semi;
+    font-size: $fs-section;
+    letter-spacing: -0.01em;
+    color: var(--ms-ink);
+    text-decoration: none;
+  }
+
+  &__spacer { flex: 1; }
+}
+
+.ms-nav {
+  display: flex;
+  align-items: stretch;
+  gap: $s1;
+  height: 100%;
+
+  &__group {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  &__trigger {
+    background: none;
+    border: 0;
+    padding: $s2 $s3;
+    border-radius: $r-chip;
+    font-size: $fs-body;
+    font-weight: $fw-medium;
+    color: var(--ms-text-secondary);
+    cursor: pointer;
+
+    &:hover { background: $muted-bg; color: var(--ms-ink); }
+
+    // The current group is obvious in greyscale: weight and an underline, not hue alone.
+    &[aria-expanded="true"],
+    &.is-current {
+      color: var(--ms-pri-d);
+      font-weight: $fw-semi;
+      box-shadow: inset 0 -2px 0 var(--ms-pri);
+    }
+  }
+
+  &__menu {
+    position: absolute;
+    top: calc(100% - 6px);
+    left: 0;
+    min-width: 260px;
+    background: var(--ms-surface);
+    border: 1px solid var(--ms-hairline);
+    border-radius: $r-card;
+    box-shadow: $e3;
+    padding: $s2;
+    z-index: 60;
+
+    &[hidden] { display: none; }
+  }
+
+  &__subtitle {
+    @extend .ms-micro;
+    padding: $s2 $s3 $s1;
+  }
+
+  &__item {
+    display: block;
+    padding: $s2 $s3;
+    border-radius: $r-chip;
+    color: var(--ms-text);
+    text-decoration: none;
+
+    &:hover { background: $pri-bg; color: var(--ms-pri-d); }
+    &.is-current { background: $pri-bg; color: var(--ms-pri-d); font-weight: $fw-semi; }
+  }
+}
+
+.ms-shell {
+  max-width: var(--ms-content-max);
+  margin: 0 auto;
+  padding: $s6 $gutter $s9;
+}
+
+// =====================================================================================
+// Pills in the top bar: scope, mode, as-of
+// =====================================================================================
+
+.ms-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: $s1;
+  height: 28px;
+  padding: 0 $s3;
+  border-radius: $r-pill;
+  border: 1px solid var(--ms-hairline);
+  background: var(--ms-surface);
+  font-size: 12px;
+  color: var(--ms-text-secondary);
+  white-space: nowrap;
+
+  &--emphasis {
+    background: $pri-bg;
+    border-color: $pri-bd;
+    color: var(--ms-pri-d);
+    font-weight: $fw-medium;
+  }
+
+  // Test mode is a state, and it says so in a word as well as a tint.
+  &--test {
+    background: $warn-bg;
+    border-color: $warn-bd;
+    color: $warn;
+    font-weight: $fw-semi;
+  }
+}
+
+// =====================================================================================
+// Cards, rows, tiles
+// =====================================================================================
+
+.ms-card {
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-card;
+  box-shadow: $e1;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    gap: $s3;
+    padding: $s4 $s5;
+    border-bottom: 1px solid var(--ms-hairline);
+  }
+
+  &__title { font-size: $fs-card-title; font-weight: $fw-semi; }
+  &__body { padding: $s5; }
+  &__foot { padding: $s3 $s5; border-top: 1px solid var(--ms-hairline); background: $muted-bg; }
+}
+
+.ms-hero {
+  margin-bottom: $s6;
+
+  &__eyebrow { @extend .ms-micro; }
+  &__line { font-family: $font-serif; font-size: $fs-hero; line-height: 1.25; margin: $s2 0; }
+  &__sub { color: var(--ms-text-secondary); max-width: 68ch; }
+
+  &__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $s7;
+    margin-top: $s5;
+  }
+}
+
+.ms-stat {
+  &__value { font-family: $font-mono; font-size: 22px; font-weight: $fw-medium; }
+  &__label { @extend .ms-micro; }
+}
+
+.ms-tile {
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-row;
+  padding: $s4;
+  background: var(--ms-surface);
+
+  &__value { font-family: $font-mono; font-size: 20px; font-weight: $fw-medium; }
+  &__label { @extend .ms-micro; }
+  &__note { color: var(--ms-text-recessive); font-size: 12px; margin-top: $s1; }
+}
+
+.ms-row {
+  display: flex;
+  align-items: center;
+  gap: $s4;
+  padding: $row-pad-y $row-pad-x;
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-row;
+  background: var(--ms-surface);
+
+  & + & { margin-top: $s2; }
+
+  // A tinted row darkens its own recessive tier so the text still passes contrast.
+  &--warning { background: $warn-bg; border-color: $warn-bd; --ms-text-recessive: #{$ink-700}; }
+  &--danger  { background: $danger-bg; border-color: $danger-bd; --ms-text-recessive: #{$ink-700}; }
+  &--positive{ background: $good-bg; border-color: $good-bd; --ms-text-recessive: #{$ink-700}; }
+  &--info    { background: $info-bg; border-color: $info-bd; --ms-text-recessive: #{$ink-700}; }
+  &--muted   { background: $muted-bg; --ms-text-recessive: #{$ink-600}; }
+
+  // Selection is readable in greyscale: a thick left edge, not a tint alone.
+  &.is-selected {
+    border-color: $pri-bd;
+    background: $pri-bg;
+    box-shadow: inset 3px 0 0 var(--ms-pri);
+    --ms-text-recessive: #{$ink-700};
+  }
+}
+
+// =====================================================================================
+// State chips. The stylesheet decides what a SemanticRole looks like.
+// =====================================================================================
+
+.ms-state {
+  display: inline-flex;
+  align-items: center;
+  gap: $s1;
+  padding: 2px $s2;
+  border-radius: $r-chip;
+  font-size: 11.5px;
+  font-weight: $fw-medium;
+  border: 1px solid transparent;
+  white-space: nowrap;
+
+  // A glyph carries the state as well as the tint, so hue is never the only signal.
+  &::before { font-family: $font-mono; font-size: 10px; }
+
+  &--neutral  { background: $muted-bg;  border-color: $muted-bd;  color: $ink-700;  &::before { content: "·"; } }
+  &--positive { background: $good-bg;   border-color: $good-bd;   color: $good;     &::before { content: "✓"; } }
+  &--warning  { background: $warn-bg;   border-color: $warn-bd;   color: $warn;     &::before { content: "!"; } }
+  &--danger   { background: $danger-bg; border-color: $danger-bd; color: $danger;   &::before { content: "×"; } }
+  &--info     { background: $info-bg;   border-color: $info-bd;   color: $info;     &::before { content: "i"; } }
+  &--muted    { background: transparent; border-color: $muted-bd; color: $muted;    &::before { content: "–"; } }
+
+  // Solid ink: the outcome pill, and only the outcome pill.
+  &--outcome  { background: $ink; border-color: $ink; color: #fff; font-weight: $fw-semi; &::before { content: "="; } }
+}
+
+// Categories — role names, org levels, process names — are grey. They are not states.
+.ms-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px $s2;
+  border-radius: $r-chip;
+  font-family: $font-mono;
+  font-size: $fs-micro;
+  text-transform: uppercase;
+  letter-spacing: $tracking-micro;
+  background: $muted-bg;
+  border: 1px solid $muted-bd;
+  color: $ink-600;
+}
+
+// =====================================================================================
+// Controls
+// =====================================================================================
+
+.ms-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $s2;
+  height: $control-h;
+  padding: 0 $s4;
+  border-radius: $r-input;
+  border: 1px solid var(--ms-hairline);
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  font-size: $fs-body;
+  font-weight: $fw-medium;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background $t-fast ease, border-color $t-fast ease;
+
+  &:hover:not(:disabled) { background: $muted-bg; }
+
+  &--primary {
+    background: var(--ms-pri);
+    border-color: var(--ms-pri);
+    color: #fff;
+    &:hover:not(:disabled) { background: var(--ms-pri-d); border-color: var(--ms-pri-d); }
+  }
+
+  &--danger {
+    color: $danger;
+    border-color: $danger-bd;
+    &:hover:not(:disabled) { background: $danger-bg; }
+  }
+
+  &--ghost { background: transparent; border-color: transparent; }
+  &--sm { height: 28px; padding: 0 $s3; font-size: 12px; }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.ms-field {
+  display: block;
+  margin-bottom: $s4;
+
+  &__label { @extend .ms-micro; display: block; margin-bottom: $s1; }
+  &__hint { color: var(--ms-text-recessive); font-size: 12px; margin-top: $s1; }
+}
+
+.ms-input,
+.ms-select,
+.ms-textarea {
+  width: 100%;
+  height: $control-h;
+  padding: 0 $s3;
+  border-radius: $r-input;
+  border: 1px solid $ink-300;
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  font-family: inherit;
+  font-size: $fs-body;
+
+  &:focus { border-color: var(--ms-pri); }
+
+  // A read-only surface renders values as text, not as a greyed input. Where a control
+  // has to stay, a select is DISABLED, never readonly — readonly does nothing on a select.
+  &:disabled { background: $muted-bg; color: $ink-600; cursor: not-allowed; }
+}
+
+.ms-textarea { height: auto; min-height: 80px; padding: $s2 $s3; line-height: $lh-body; }
+
+// The read-only surface: a value rendered as text, deliberately.
+.ms-readonly-value {
+  display: block;
+  padding: $s2 0;
+  font-weight: $fw-medium;
+  border-bottom: 1px dashed $ink-300;
+}
+
+// =====================================================================================
+// Tables at 12,000 rows
+// =====================================================================================
+
+.ms-table-wrap {
+  position: relative;
+  overflow: auto;
+  max-height: calc(100vh - 320px);
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-card;
+  background: var(--ms-surface);
+}
+
+.ms-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: $fs-table;
+
+  th, td {
+    padding: $row-pad-y $row-pad-x;
+    border-bottom: 1px solid var(--ms-hairline);
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  // Sticky header and sticky first column, so a wide table stays readable.
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: $muted-bg;
+    font-family: $font-mono;
+    font-size: $fs-micro;
+    text-transform: uppercase;
+    letter-spacing: $tracking-micro;
+    color: $ink-600;
+    font-weight: $fw-medium;
+  }
+
+  th.is-sticky-col,
+  td.is-sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--ms-surface);
+    box-shadow: 1px 0 0 var(--ms-hairline);
+  }
+
+  thead th.is-sticky-col { z-index: 3; background: $muted-bg; }
+
+  tbody tr:hover td { background: $muted-bg; }
+
+  tbody tr.is-selected td {
+    background: $pri-bg;
+    --ms-text-recessive: #{$ink-700};
+  }
+
+  &__num { text-align: right; font-family: $font-mono; font-variant-numeric: tabular-nums; }
+  &__recessive { color: var(--ms-text-recessive); }
+}
+
+// Every column heading filters.
+.ms-colfilter {
+  display: inline-flex;
+  align-items: center;
+  gap: $s1;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-transform: inherit;
+  letter-spacing: inherit;
+
+  &::after { content: "▾"; font-size: 9px; opacity: 0.55; }
+  &.is-filtered { color: var(--ms-pri-d); &::after { opacity: 1; } }
+}
+
+.ms-popover {
+  position: absolute;
+  z-index: 70;
+  min-width: 260px;
+  max-height: 340px;
+  overflow: auto;
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-hairline);
+  border-radius: $r-card;
+  box-shadow: $e3;
+  padding: $s3;
+
+  &[hidden] { display: none; }
+}
+
+.ms-table-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $s4;
+  padding: $s3 $s4;
+  border-top: 1px solid var(--ms-hairline);
+  color: var(--ms-text-secondary);
+  font-size: 12px;
+}
+
+// =====================================================================================
+// The funnel
+// =====================================================================================
+
+.ms-funnel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $s2;
+  padding: $s3 0;
+
+  // Thin dividers between the groups, not between every pill.
+  &__divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--ms-hairline);
+    margin: 0 $s2;
+  }
+}
+
+.ms-funnel-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: $s2;
+  height: 30px;
+  padding: 0 $s3;
+  border-radius: $r-pill;
+  border: 1px solid var(--ms-hairline);
+  background: var(--ms-surface);
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ms-text);
+
+  &__count {
+    font-family: $font-mono;
+    font-weight: $fw-semi;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &:hover { background: $muted-bg; }
+
+  // The clicked pill is the current filter, and says so in weight as well as tint.
+  &.is-active {
+    border-color: var(--ms-pri);
+    background: $pri-bg;
+    color: var(--ms-pri-d);
+    font-weight: $fw-semi;
+  }
+
+  &--warning  { border-color: $warn-bd; background: $warn-bg; color: $warn; }
+  &--danger   { border-color: $danger-bd; background: $danger-bg; color: $danger; }
+  &--positive { border-color: $good-bd; background: $good-bg; color: $good; }
+  &--info     { border-color: $info-bd; background: $info-bg; color: $info; }
+
+  // Solid ink, because it is the outcome.
+  &--outcome {
+    background: $ink;
+    border-color: $ink;
+    color: #fff;
+    font-weight: $fw-semi;
+    cursor: default;
+  }
+}
+
+// =====================================================================================
+// Bars and meters
+// =====================================================================================
+
+.ms-bar {
+  position: relative;
+  height: 8px;
+  border-radius: $r-pill;
+  background: $ink-300;
+  overflow: hidden;
+
+  &__fill { height: 100%; background: var(--ms-pri); }
+  &--sm { height: 5px; }
+
+  // The threshold tick on the readiness ladder.
+  &__tick {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: $ink;
+  }
+}
+
+// The five tracks: which step is missing, without a percentage.
+.ms-tracks {
+  display: flex;
+  gap: 3px;
+
+  &__track {
+    height: 6px;
+    width: 22px;
+    border-radius: 2px;
+    background: $ink-300;
+
+    &.is-set { background: var(--ms-pri); }
+  }
+}
+
+// The stage strip: done / active / pending.
+.ms-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: $s1;
+
+  &__step {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px $s2;
+    border-radius: $r-chip;
+    font-size: 11.5px;
+    border: 1px solid var(--ms-hairline);
+    color: var(--ms-text-recessive);
+
+    &.is-done { background: $muted-bg; color: $ink-600; &::before { content: "✓"; font-size: 9px; } }
+    &.is-active {
+      background: $pri-bg;
+      border-color: var(--ms-pri);
+      color: var(--ms-pri-d);
+      font-weight: $fw-semi;
+      &::before { content: "●"; font-size: 8px; }
+    }
+    &.is-pending { &::before { content: "○"; font-size: 8px; } }
+  }
+}

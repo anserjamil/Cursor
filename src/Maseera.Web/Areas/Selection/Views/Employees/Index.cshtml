@@ -1,0 +1,20 @@
+@model RosterViewModel
+@{
+    ViewData["Title"] = "Employee roster";
+}
+
+<div class="ms-hero">
+    <div class="ms-hero__eyebrow">Succession</div>
+    <div class="ms-hero__line">The roster, as this application reads it.</div>
+    <p class="ms-hero__sub">
+        Only people in the organisations you have been granted appear here. Sensitive
+        columns are readable on a person's record and refused as a filter, and the refusal
+        says which column and why.
+    </p>
+</div>
+
+@await Html.PartialAsync("_RosterTable", Model)
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,145 @@
+@model SuccessionViewModel
+@{
+    ViewData["Title"] = "Department plans";
+}
+
+<nav class="ms-breadcrumb" aria-label="Breadcrumb">
+    <a asp-controller="Cycles" asp-action="Index">Cycles</a>
+    <span aria-hidden="true">›</span>
+    <span>@Model.State.ProcessName</span>
+    <span aria-hidden="true">›</span>
+    <span>Department plans</span>
+</nav>
+
+@await Component.InvokeAsync("StageTabs", new { tabs = Model.Tabs, state = Model.State })
+
+@if (Model.State.LockReason is not null)
+{
+    @await Html.PartialAsync("_ReadOnlyBar", Model.State.LockReason)
+}
+
+<div class="ms-split">
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">Plans</h3>
+            <span class="ms-topbar__spacer"></span>
+            <form method="get" class="ms-inline">
+                <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                <input type="search" class="ms-input" name="q" value="@Model.Search"
+                       placeholder="Search" aria-label="Search plans" />
+                <select class="ms-select" name="department" aria-label="Department">
+                    <option value="">Every department</option>
+                    @foreach (var d in Model.Plans.Departments)
+                    {
+                        <option value="@d.Department" selected="@(d.Department == Model.Department)">
+                            @d.Department (@d.Planned)
+                        </option>
+                    }
+                </select>
+                <button type="submit" class="ms-btn ms-btn--sm">Apply</button>
+            </form>
+        </div>
+
+        <div class="ms-card__body">
+            @if (Model.Plans.Rows.Count == 0)
+            {
+                @await Html.PartialAsync("_EmptyState",
+                    ("Nobody is planned yet",
+                     "A plan is a person against a department, at a level, for a year. One person may be planned in several departments.",
+                     (string?)null, (string?)null))
+            }
+            else
+            {
+                <div class="ms-table-wrap">
+                    <table class="ms-table">
+                        <thead>
+                            <tr>
+                                <th class="is-sticky-col">Name</th>
+                                <th>Department</th>
+                                <th>Level</th>
+                                <th>Year</th>
+                                <th>Remark</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var plan in Model.Plans.Rows)
+                        {
+                            <tr>
+                                <td class="is-sticky-col">
+                                    <a asp-controller="Profile" asp-action="Index"
+                                       asp-route-personnelNo="@plan.PersonnelNo"
+                                       asp-route-cycleId="@Model.State.CycleId">@plan.FullName</a>
+                                    <div class="ms-micro"><ms-code>@plan.PersonnelNo</ms-code></div>
+                                </td>
+                                <td>@plan.Department</td>
+                                <td>
+                                    @if (plan.LevelCode is not null)
+                                    {
+                                        <ms-code>@plan.LevelCode</ms-code>
+                                        <span class="ms-micro">@plan.LevelName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="ms-table__recessive">Not levelled yet</span>
+                                    }
+                                </td>
+                                <td class="ms-table__num">@plan.PlanYear</td>
+                                <td class="ms-table__recessive">@plan.Remark</td>
+                                <td>
+                                    @if (Model.CanWrite)
+                                    {
+                                        <form method="post" asp-action="DropPlan" class="ms-inline"
+                                              data-confirm="Drop @plan.FullName from @plan.Department? The plan is kept as history.">
+                                            <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                                            <input type="hidden" name="planRowId" value="@plan.SuccessionPlanRowId" />
+                                            <input class="ms-input ms-input--reason" name="reason" placeholder="Reason" aria-label="Reason" />
+                                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--danger">Drop</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (Model.CanWrite)
+            {
+                <form method="post" asp-action="SavePlan" class="ms-row">
+                    <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                    <input class="ms-input ms-code" name="personnelNo" placeholder="Personnel No" required aria-label="Personnel number" />
+                    <input class="ms-input" name="department" placeholder="Department" required aria-label="Department" list="ms-departments" />
+                    <input class="ms-input ms-input--code" name="levelCode" placeholder="Level" aria-label="Level" />
+                    <input class="ms-input" name="remark" placeholder="Remark" aria-label="Remark" />
+                    <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Add to a plan</button>
+                </form>
+
+                <datalist id="ms-departments">
+                    @foreach (var d in Model.Plans.Departments)
+                    {
+                        <option value="@d.Department"></option>
+                    }
+                </datalist>
+            }
+        </div>
+    </section>
+
+    <aside class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">The level census</h3></div>
+        <div class="ms-card__body">
+            @foreach (var level in Model.Plans.Census)
+            {
+                <div class="ms-row">
+                    <div>
+                        <ms-code>@level.LevelCode</ms-code> @level.Name
+                        <div class="ms-micro">at @level.ThresholdPct?.ToString("0.#")% or more</div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    <span class="ms-num">@level.Planned.ToString("N0")</span>
+                </div>
+            }
+        </div>
+    </aside>
+</div>

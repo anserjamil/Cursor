@@ -1,0 +1,134 @@
+@model DevFrameworkViewModel
+@{
+    var unmapped = Model.Sources.Count(s => !s.IsMapped);
+}
+
+<div class="ms-hero__sub ms-sentence">
+    Each kind of evidence is read from exactly one table. The sentence under each source is
+    built from the live mapping, so it cannot describe a join the engine will not run.
+</div>
+
+@if (unmapped > 0)
+{
+    <p class="ms-sentence ms-sentence--warn">
+        @unmapped of @Model.Sources.Count @(unmapped == 1 ? "source has" : "sources have")
+        no table mapped. Every requirement that names @(unmapped == 1 ? "it" : "them") can
+        never be met, and the framework screens say so on the requirement itself rather
+        than counting a quiet zero.
+    </p>
+}
+
+<div class="ms-cards">
+    @foreach (var source in Model.Sources)
+    {
+        var columns = Model.SourceColumns
+            .Where(c => c.EvidenceSourceId == source.EvidenceSourceId)
+            .OrderBy(c => c.SortOrder).ToList();
+
+        <article class="ms-card @(source.IsMapped ? "" : "is-warned")">
+            <div class="ms-card__head">
+                <div>
+                    <ms-code>@source.KindCode</ms-code>
+                    <h3 class="ms-card__title">@source.KindName</h3>
+                </div>
+                <span class="ms-micro" title="FLAG asks whether any record passes; SUM adds a measure up to a floor">
+                    @source.EvalModeCode
+                </span>
+                <span class="ms-topbar__spacer"></span>
+                @if (source.IsMapped)
+                {
+                    <state-chip role="success" label="Mapped"></state-chip>
+                }
+                else
+                {
+                    <state-chip role="danger" label="Nothing mapped"></state-chip>
+                }
+            </div>
+
+            <div class="ms-card__body">
+                @* The join sentence is built in SQL from the values actually set. *@
+                <p class="ms-rule ms-rule--full">@source.JoinSentence</p>
+
+                @if (source.Warning is not null)
+                {
+                    <p class="ms-sentence ms-sentence--warn">@source.Warning</p>
+                }
+
+                <dl class="ms-facts">
+                    <div><dt>Table</dt><dd><ms-code>@source.AppSchema.@source.AppTable</ms-code></dd></div>
+                    <div><dt>Mapped from</dt><dd><ms-code>@(source.SourceTable ?? source.SourceKey ?? "—")</ms-code></dd></div>
+                    <div><dt>Person column</dt><dd><ms-code>@source.KeyColumn</ms-code></dd></div>
+                    <div><dt>Item column</dt><dd><ms-code>@(source.ItemColumn ?? "—")</ms-code></dd></div>
+                    <div><dt>Status column</dt><dd><ms-code>@(source.StatusColumn ?? "—")</ms-code></dd></div>
+                    <div><dt>Passes when</dt><dd><ms-code>@(source.PassValue ?? "—")</ms-code></dd></div>
+                    <div><dt>Measure column</dt><dd><ms-code>@(source.MeasureColumn ?? "—")</ms-code></dd></div>
+                    <div><dt>Rows held</dt><dd><span class="ms-num">@(source.RowCountCached?.ToString("N0") ?? "—")</span></dd></div>
+                    <div>
+                        <dt>Last read</dt>
+                        <dd>@(source.LastSyncUtc is { } when ? when.ToString("yyyy-MM-dd HH:mm") : "Never")</dd>
+                    </div>
+                    <div><dt>Items known</dt><dd><span class="ms-num">@source.ItemCount.ToString("N0")</span></dd></div>
+                    <div><dt>Events naming it</dt><dd><span class="ms-num">@source.EventCount.ToString("N0")</span></dd></div>
+                </dl>
+
+                @if (columns.Count > 0)
+                {
+                    <h4 class="ms-micro">Fields a condition may name</h4>
+                    <div class="ms-chips">
+                        @foreach (var column in columns)
+                        {
+                            <span class="ms-chip @(column.IsPhysical ? "" : "is-ghost")"
+                                  title="@(column.IsPhysical
+                                      ? $"{column.DataType}, used by {column.UsageCount} condition(s)"
+                                      : "Named by a condition but not present on the table. Every condition using it fails on its own.")">
+                                @(column.Caption ?? column.ColumnName)
+                                @if (column.IsExpiryDate)
+                                {
+                                    <span class="ms-tag">expiry</span>
+                                }
+                                @if (!column.IsPhysical)
+                                {
+                                    <span class="ms-tag ms-tag--warn">not on the table</span>
+                                }
+                                @if (column.IsLearned)
+                                {
+                                    <span class="ms-tag">learned</span>
+                                }
+                            </span>
+                        }
+                    </div>
+                }
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="SaveSource" class="ms-form ms-form--compact">
+                        <input type="hidden" name="kindCode" value="@source.KindCode" />
+                        <label class="ms-field">
+                            <span>Mapped source</span>
+                            <input name="sourceKey" class="ms-input" value="@source.SourceKey" />
+                        </label>
+                        <label class="ms-field">
+                            <span>Item column</span>
+                            <input name="itemColumn" class="ms-input" value="@source.ItemColumn" />
+                        </label>
+                        <label class="ms-field">
+                            <span>Status column</span>
+                            <input name="statusColumn" class="ms-input" value="@source.StatusColumn" />
+                        </label>
+                        <label class="ms-field">
+                            <span>Passes when the status is</span>
+                            <input name="passValue" class="ms-input" value="@source.PassValue" />
+                        </label>
+                        <label class="ms-field">
+                            <span>Measure column</span>
+                            <input name="measureColumn" class="ms-input" value="@source.MeasureColumn" />
+                        </label>
+                        <div class="ms-form__foot">
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Save</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </article>
+    }
+</div>

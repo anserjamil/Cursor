@@ -1,0 +1,36 @@
+@model TopNavModel
+
+<nav class="ms-nav" aria-label="Main">
+    @foreach (var group in Model.Groups)
+    {
+        var screens = Model.ScreensByGroup.TryGetValue(group.MenuGroupId, out var s) ? s : [];
+        if (screens.Count == 0) { continue; }
+
+        <div class="ms-nav__group">
+            <button type="button"
+                    class="ms-nav__trigger @(Model.IsCurrentGroup(group.MenuGroupId) ? "is-current" : "")"
+                    aria-expanded="false" aria-haspopup="true">
+                @group.Caption
+            </button>
+            <div class="ms-nav__menu" hidden>
+                @* The one line that says what the group is for, from cfg.MenuGroup. *@
+                @if (group.Subtitle is not null)
+                {
+                    <div class="ms-nav__subtitle">@group.Subtitle</div>
+                }
+
+                @foreach (var screen in screens)
+                {
+                    <a class="ms-nav__item @(Model.IsCurrentScreen(screen) ? "is-current" : "")"
+                       asp-area="@screen.AreaName" asp-controller="@screen.ControllerName" asp-action="@screen.ActionName">
+                        @screen.Name
+                        @if (!screen.CanWrite)
+                        {
+                            <span class="ms-tag" title="You may read this screen but not change it">Read</span>
+                        }
+                    </a>
+                }
+            </div>
+        </div>
+    }
+</nav>

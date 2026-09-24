@@ -1,0 +1,8 @@
+@model StageViewModel
+@{
+    ViewData["Title"] = Model.State.StageName;
+}
+
+@* Identify, Review and Calibration are one screen; the pills that distinguish them come
+   from sel.FunnelPill, and one procedure fills all three so they cannot drift apart. *@
+@await Html.PartialAsync("_Stage", Model)

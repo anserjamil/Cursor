@@ -1,0 +1,64 @@
+@model PlanCheck
+@{
+    var header = Model.Header;
+}
+
+<div class="ms-plancheck">
+    <h3>@header?.FullName</h3>
+    <div class="ms-micro">Planned in @header?.Department at @(header?.LevelCode ?? "no level yet")</div>
+
+    @* The framework answer and the plan answer can legitimately differ, and both are
+       shown rather than one being chosen for the reader. *@
+    @if (Model.Attainment is { } attainment)
+    {
+        <div class="ms-sentence">
+            Against the framework as a whole, @attainment.AttainmentPct.ToString("0")% of the
+            requirements are met@(attainment.MustOutstanding > 0
+                ? $", and {attainment.MustOutstanding} must requirement{(attainment.MustOutstanding == 1 ? "" : "s")} remain outstanding — which disqualifies them until it is met"
+                : ".")
+        </div>
+    }
+
+    @if (Model.Verdict is { } verdict)
+    {
+        <div class="ms-sentence ms-sentence--muted">@verdict.Sentence</div>
+    }
+
+    <h4 class="ms-micro">Where the days were actually served</h4>
+    <div class="ms-table-wrap">
+        <table class="ms-table">
+            <thead>
+                <tr><th class="is-sticky-col">Department</th><th class="ms-table__num">Days</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Departments)
+            {
+                <tr class="@(row.IsPlannedDepartment ? "is-selected" : "")">
+                    <td class="is-sticky-col">@(row.Department ?? "(not recorded)")</td>
+                    <td class="ms-table__num">@row.DaysServed.ToString("N0")</td>
+                    <td>
+                        @if (row.IsPlannedDepartment)
+                        {
+                            <span class="ms-tag">the planned department</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <h4 class="ms-micro">Requirements</h4>
+    @foreach (var requirement in Model.Requirements)
+    {
+        <div class="ms-ladder__req @(requirement.Met ? "is-met" : "") @(requirement.IsMust ? "is-must" : "")">
+            <ms-code>@requirement.EventCode</ms-code>
+            <span>@requirement.EventName</span>
+            @if (requirement.IsMust)
+            {
+                <span class="ms-tag">Must</span>
+            }
+            <span class="ms-ladder__why">@requirement.Why</span>
+        </div>
+    }
+</div>

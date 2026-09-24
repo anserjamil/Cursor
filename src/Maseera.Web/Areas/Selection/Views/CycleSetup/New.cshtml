@@ -1,0 +1,131 @@
+@model NewDesignViewModel
+@{
+    ViewData["Title"] = "New design";
+    var chosen = Model.Recipes.FirstOrDefault(r => r.RecipeCode == Model.ChosenRecipe);
+}
+
+<div class="ms-hero">
+    <div class="ms-hero__eyebrow">New design</div>
+    <div class="ms-hero__line">What kind of cycle is this?</div>
+    <p class="ms-hero__sub">
+        A recipe brings its own processes and marks the steps it does not need as skipped,
+        so a common cycle opens in three steps instead of six.
+    </p>
+</div>
+
+@if (chosen is null)
+{
+    <div class="ms-recipes">
+        @foreach (var recipe in Model.Recipes)
+        {
+            <a class="ms-card ms-recipe" asp-action="New" asp-route-recipe="@recipe.RecipeCode">
+                <div class="ms-card__body">
+                    <h3 class="ms-card__title">@recipe.Name</h3>
+                    <p>@recipe.Description</p>
+                    @if (recipe.ProcessSummary is not null)
+                    {
+                        <div class="ms-micro">Brings: @recipe.ProcessSummary</div>
+                    }
+                    @if (recipe.SkipCount > 0)
+                    {
+                        <div class="ms-micro">
+                            @(recipe.StepCount - recipe.SkipCount) of @recipe.StepCount steps
+                        </div>
+                    }
+                </div>
+            </a>
+        }
+    </div>
+}
+else if (chosen.IsCopy)
+{
+    <div class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">Which cycle are you copying?</h3></div>
+        <form class="ms-card__body" method="post" asp-action="Copy">
+            <label class="ms-field">
+                <span class="ms-field__label">Cycle</span>
+                <select class="ms-select" name="cycleId" required>
+                    @foreach (var c in Model.Copyable)
+                    {
+                        <option value="@c.CycleId">@c.CycleCode — @c.Name (@c.StatusCode.ToLowerInvariant())</option>
+                    }
+                </select>
+            </label>
+            <label class="ms-field">
+                <span class="ms-field__label">New code</span>
+                <input class="ms-input" name="newCode" required />
+            </label>
+            <label class="ms-field">
+                <span class="ms-field__label">New name</span>
+                <input class="ms-input" name="newName" required />
+            </label>
+            <button type="submit" class="ms-btn ms-btn--primary">Create the draft</button>
+        </form>
+    </div>
+}
+else
+{
+    <div class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">@chosen.Name</h3>
+            <span class="ms-topbar__spacer"></span>
+            <a class="ms-btn ms-btn--sm ms-btn--ghost" asp-action="New">Change</a>
+        </div>
+
+        <form class="ms-card__body" method="post" asp-action="Create">
+            <input type="hidden" name="recipeId" value="@chosen.RecipeId" />
+
+            <label class="ms-field">
+                <span class="ms-field__label">Code</span>
+                <input class="ms-input" name="cycleCode" required placeholder="TC-2026" />
+            </label>
+
+            <label class="ms-field">
+                <span class="ms-field__label">Name</span>
+                <input class="ms-input" name="name" required placeholder="Talent cycle 2026" />
+            </label>
+
+            @if (chosen.AsksJobSuffix)
+            {
+                <h4>Which job suffixes does this talent cycle cover?</h4>
+                <p class="ms-hero__sub">Both stay editable on step 1.</p>
+
+                @if (Model.JobSuffixProblem is not null)
+                {
+                    @* A missing source is never a silent empty dropdown. *@
+                    <div class="ms-refusal">
+                        <div class="ms-refusal__title">The job suffixes could not be read</div>
+                        <p>@Model.JobSuffixProblem</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ms-field-row">
+                        <label class="ms-field">
+                            <span class="ms-field__label">Incumbent suffix</span>
+                            <select class="ms-select" name="incumbentSuffix">
+                                <option value="">Not set yet</option>
+                                @foreach (var suffix in Model.JobSuffixes)
+                                {
+                                    <option value="@suffix.PermJobSuffix">@suffix.PermJobSuffix — @suffix.PermJobSuffixDesc</option>
+                                }
+                            </select>
+                        </label>
+                        <label class="ms-field">
+                            <span class="ms-field__label">Successor suffix</span>
+                            <select class="ms-select" name="successorSuffix">
+                                <option value="">Not set yet</option>
+                                @foreach (var suffix in Model.JobSuffixes)
+                                {
+                                    <option value="@suffix.PermJobSuffix">@suffix.PermJobSuffix — @suffix.PermJobSuffixDesc</option>
+                                }
+                            </select>
+                        </label>
+                    </div>
+                }
+            }
+
+            <button type="submit" class="ms-btn ms-btn--primary">Create the draft</button>
+        </form>
+    </div>
+}

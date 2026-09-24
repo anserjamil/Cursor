@@ -1,0 +1,55 @@
+@model StageViewModel
+@{
+    var state = Model.State;
+}
+
+<nav class="ms-breadcrumb" aria-label="Breadcrumb">
+    <a asp-controller="Cycles" asp-action="Index">Cycles</a>
+    <span aria-hidden="true">›</span>
+    <span>@state.ProcessName</span>
+    <span aria-hidden="true">›</span>
+    <span>@state.StageName</span>
+</nav>
+
+@* The tab strip: every stage of every process, with its window and its state. *@
+@await Component.InvokeAsync("StageTabs", new { tabs = Model.Tabs, state })
+
+<div class="ms-stagehead">
+    <div>
+        <span class="ms-micro">Window</span>
+        <as-of-date value="@state.StartDate"></as-of-date> –
+        <as-of-date value="@state.EndDate"></as-of-date>
+    </div>
+    <div>
+        <span class="ms-micro">Decided by</span>
+        @(state.PerformerName ?? "Not set")
+    </div>
+    <div>
+        <span class="ms-micro">As of</span>
+        <as-of-date value="@state.AsOf"></as-of-date>
+    </div>
+    <span class="ms-topbar__spacer"></span>
+    @if (Model.TestModeNote is not null)
+    {
+        <span class="ms-pill ms-pill--test" title="@Model.TestModeNote">Test mode</span>
+    }
+</div>
+
+@* The lock message explains exactly why this stage is read-only, and which stage is
+   open now. *@
+@if (state.LockReason is not null)
+{
+    <div class="ms-readonly-bar @(state.StageState == "UNDATED" ? "ms-readonly-bar--warning" : "")" role="status">
+        @state.LockReason
+        @if (state.OpenStageName is not null && state.StageState != "OPEN")
+        {
+            <span>The stage open now is <strong>@state.OpenStageName</strong>.</span>
+        }
+    </div>
+}
+
+@await Html.PartialAsync("_StageTable", Model)
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,78 @@
+@inject Microsoft.Extensions.Options.IOptions<MaseeraOptions> Options
+@inject IWebHostEnvironment Environment
+@{
+    var showSwitcher = Environment.IsDevelopment() && Options.Value.AllowImpersonation;
+}
+<header class="ms-topbar">
+    <button type="button" class="ms-btn ms-btn--ghost ms-btn--sm d-lg-none" data-nav-toggle aria-label="Menu">≡</button>
+
+    <a class="ms-topbar__brand" asp-area="Selection" asp-controller="Cycles" asp-action="Index">Maseera</a>
+
+    @* The navigation is cfg.MenuGroup and cfg.Screen, never markup here. *@
+    @await Component.InvokeAsync("TopNav")
+
+    <span class="ms-topbar__spacer"></span>
+
+    @await Component.InvokeAsync("AsOfPill")
+    @await Component.InvokeAsync("ModePill")
+    @await Component.InvokeAsync("ScopePill")
+
+    <button type="button" class="ms-pill" data-modal-open="ms-palette-modal"
+            title="Jump to anything (Ctrl or Cmd and K)">
+        <span class="ms-code">⌘K</span> Jump to
+    </button>
+
+    <div class="ms-nav__group">
+        <button type="button" class="ms-nav__trigger" aria-expanded="false" aria-haspopup="true">
+            @Viewer.DisplayName
+            @if (Viewer.IsReadOnly)
+            {
+                <span class="ms-tag" title="This role reads every screen and changes none of them">Read only</span>
+            }
+        </button>
+        <div class="ms-nav__menu" hidden>
+            <div class="ms-nav__subtitle">Signed in</div>
+            <div class="ms-nav__item">
+                <div><strong>@Viewer.DisplayName</strong></div>
+                <div class="ms-code">@Viewer.LoginName</div>
+                <div class="ms-micro">@(Viewer.RoleName ?? "No role")</div>
+            </div>
+
+            @if (Viewer.AuthorizationNote is not null)
+            {
+                <div class="ms-nav__item">
+                    <state-chip role="@Viewer.AuthorizationRole" label="@Viewer.AuthorizationNote"></state-chip>
+                </div>
+            }
+
+            @if (showSwitcher)
+            {
+                @* Development only. The switcher is gated on the hosting environment
+                   first, so turning the flag on elsewhere still changes nothing. *@
+                <div class="ms-nav__subtitle">Sign in as</div>
+                <div class="ms-nav__item">
+                    <select class="ms-select" data-sign-in-as aria-label="Sign in as">
+                        <option value="maseera.hrbp" selected="@(Viewer.LoginName == "maseera.hrbp")">HR Business Partner</option>
+                        <option value="maseera.svp" selected="@(Viewer.LoginName == "maseera.svp")">Senior Vice President</option>
+                        <option value="maseera.auditor" selected="@(Viewer.LoginName == "maseera.auditor")">Auditor</option>
+                        <option value="maseera.admin" selected="@(Viewer.LoginName == "maseera.admin")">Administrator</option>
+                    </select>
+                    @if (Viewer.IsImpersonating)
+                    {
+                        <div class="ms-micro">Really @Viewer.LoginName</div>
+                    }
+                </div>
+            }
+
+            <div class="ms-nav__subtitle">This machine</div>
+            <a class="ms-nav__item" asp-area="Admin" asp-controller="Health" asp-action="Index">Health</a>
+        </div>
+    </div>
+</header>
+
+@* The command palette navigates. It never acts. *@
+<div class="ms-modal" id="ms-palette-modal" hidden role="dialog" aria-modal="true" aria-label="Jump to">
+    <div class="ms-palette" style="position:static;transform:none">
+        @await Component.InvokeAsync("Palette")
+    </div>
+</div>

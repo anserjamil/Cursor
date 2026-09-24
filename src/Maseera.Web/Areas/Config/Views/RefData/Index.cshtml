@@ -1,0 +1,254 @@
+@model RefDataViewModel
+@{
+    ViewData["Title"] = "Reference data";
+    var active = Model.Domains.FirstOrDefault(d => d.DomainCode == Model.ActiveDomain);
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Configuration</div>
+    <div class="ms-hero__line">The lists the whole application reads from.</div>
+    <p class="ms-hero__sub">
+        Statuses, decision words, readiness levels, parts, phases — every one of them is a
+        row here rather than a literal in code. Rename a value and it is renamed
+        everywhere, including on decisions already taken. A system list refuses deletion of
+        a code the engine depends on, and says which.
+    </p>
+</div>
+
+<div class="ms-split">
+    <aside class="ms-split__side">
+        <h2 class="ms-micro">Lists</h2>
+        <nav class="ms-list" aria-label="Reference lists">
+            @foreach (var domain in Model.Domains.OrderBy(d => d.SortOrder))
+            {
+                <a class="ms-list__item @(domain.DomainCode == Model.ActiveDomain ? "is-current" : "")"
+                   asp-action="Index" asp-route-domain="@domain.DomainCode">
+                    <div>
+                        <strong>@domain.Name</strong>
+                        @if (domain.IsSystem)
+                        {
+                            <span class="ms-tag" title="The engine names codes in this list by hand">System</span>
+                        }
+                    </div>
+                    <div class="ms-micro">
+                        <ms-code>@domain.DomainCode</ms-code> ·
+                        @domain.ActiveCount.ToString("N0") of @domain.ValueCount.ToString("N0") in use
+                    </div>
+                </a>
+            }
+        </nav>
+    </aside>
+
+    <section class="ms-split__main">
+        @if (active is null)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Choose a list", "Every list in the application is on the left.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            <div class="ms-card">
+                <div class="ms-card__head">
+                    <div>
+                        <ms-code>@active.DomainCode</ms-code>
+                        <h3 class="ms-card__title">@active.Name</h3>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    @if (active.IsSystem)
+                    {
+                        <span class="ms-tag">System list</span>
+                    }
+                </div>
+                <div class="ms-card__body">
+                    @if (active.Description is not null)
+                    {
+                        <p class="ms-sentence">@active.Description</p>
+                    }
+                    @if (active.IsSystem)
+                    {
+                        <p class="ms-sentence ms-sentence--muted">
+                            The engine names some of these codes directly. A name, a
+                            description, a colour and the order may all be changed; the code
+                            itself cannot be removed while something depends on it, and the
+                            refusal names what depends on it.
+                        </p>
+                    }
+
+                    <div class="ms-table-wrap">
+                        <table class="ms-table">
+                            <thead>
+                                <tr>
+                                    <th class="is-sticky-col">Code</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Colour means</th>
+                                    <th class="ms-table__num">Order</th>
+                                    <th>In use</th>
+                                    @if (Model.CanWrite)
+                                    {
+                                        <th></th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var value in Model.Values.OrderBy(v => v.SortOrder))
+                            {
+                                <tr class="@(value.IsActive ? "" : "is-muted")">
+                                    <td class="is-sticky-col">
+                                        <ms-code>@value.ValueCode</ms-code>
+                                        @if (value.IsSystem)
+                                        {
+                                            <span class="ms-tag" title="The engine names this code directly">System</span>
+                                        }
+                                    </td>
+                                    <td>@value.Name</td>
+                                    <td class="ms-micro">@(value.Description ?? "—")</td>
+                                    <td>
+                                        @* A semantic role, not a colour: the stylesheet decides
+                                           what it looks like, and the same role always reads the
+                                           same way across every screen. *@
+                                        @if (value.SemanticRole is not null)
+                                        {
+                                            <state-chip role="@value.SemanticRole" label="@value.SemanticRole"></state-chip>
+                                        }
+                                        else
+                                        {
+                                            <span class="ms-table__recessive">no state</span>
+                                        }
+                                    </td>
+                                    <td class="ms-table__num">@value.SortOrder</td>
+                                    <td>@(value.IsActive ? "Yes" : "Retired")</td>
+                                    @if (Model.CanWrite)
+                                    {
+                                        <td>
+                                            <form method="post" asp-action="SaveValue" class="ms-inline-form">
+                                                <input type="hidden" name="domainCode" value="@active.DomainCode" />
+                                                <input type="hidden" name="domainValueId" value="@value.DomainValueId" />
+                                                <input type="hidden" name="valueCode" value="@value.ValueCode" />
+                                                <input name="name" class="ms-input ms-input--sm" value="@value.Name"
+                                                       aria-label="@($"Name for {value.ValueCode}")" required />
+                                                <input name="description" class="ms-input ms-input--sm"
+                                                       value="@value.Description" placeholder="Description"
+                                                       aria-label="@($"Description for {value.ValueCode}")" />
+                                                <select name="semanticRole" class="ms-select ms-select--inline"
+                                                        aria-label="@($"State colour for {value.ValueCode}")">
+                                                    <option value="">No state</option>
+                                                    @foreach (var role in SemanticRoles.Known)
+                                                    {
+                                                        <option value="@role" selected="@(value.SemanticRole == role)">@role</option>
+                                                    }
+                                                </select>
+                                                <input name="sortOrder" type="number" value="@value.SortOrder"
+                                                       class="ms-input ms-input--xs" aria-label="Order" />
+                                                <label class="ms-check">
+                                                    <input type="checkbox" name="isActive" value="true" checked="@value.IsActive" />
+                                                    In use
+                                                </label>
+                                                <button type="submit" class="ms-btn ms-btn--sm">Save</button>
+                                            </form>
+
+                                            @if (!value.IsSystem)
+                                            {
+                                                <form method="post" asp-action="DeleteValue" class="ms-inline-form">
+                                                    <input type="hidden" name="domainCode" value="@active.DomainCode" />
+                                                    <input type="hidden" name="domainValueId" value="@value.DomainValueId" />
+                                                    <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm">Remove</button>
+                                                </form>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (Model.CanWrite)
+                    {
+                        <form method="post" asp-action="SaveValue" class="ms-set__add">
+                            <input type="hidden" name="domainCode" value="@active.DomainCode" />
+                            <input name="valueCode" class="ms-input ms-input--sm" placeholder="Code" required maxlength="60" />
+                            <input name="name" class="ms-input" placeholder="Name" required maxlength="200" />
+                            <input name="description" class="ms-input" placeholder="Description" />
+                            <select name="semanticRole" class="ms-select" aria-label="State colour">
+                                <option value="">No state</option>
+                                @foreach (var role in SemanticRoles.Known)
+                                {
+                                    <option value="@role">@role</option>
+                                }
+                            </select>
+                            <input name="sortOrder" type="number" class="ms-input ms-input--xs"
+                                   placeholder="#" aria-label="Order" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Add</button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ---- the catalogue, which is discovered rather than authored ------------- *@
+        @if (Model.Catalog.Count > 0)
+        {
+            <div class="ms-card">
+                <div class="ms-card__head">
+                    <h3 class="ms-card__title">Items seen in the data</h3>
+                    <span class="ms-topbar__spacer"></span>
+                    <span class="ms-micro">
+                        @Model.Catalog.Count(i => i.NeedsReview).ToString("N0") not yet categorised
+                    </span>
+                </div>
+                <div class="ms-card__body">
+                    <p class="ms-sentence ms-sentence--muted">
+                        These are the item codes the loads have actually seen. They are
+                        discovered, not authored: a code appearing here that nobody
+                        recognises is usually a load naming something new.
+                    </p>
+                    <div class="ms-table-wrap" data-table>
+                        <table class="ms-table ms-table--tight">
+                            <thead>
+                                <tr>
+                                    <th class="is-sticky-col">Code</th>
+                                    <th>Name</th>
+                                    <th>Kind</th>
+                                    <th>Category</th>
+                                    <th class="ms-table__num">Records</th>
+                                    <th>First seen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var item in Model.Catalog.Take(500))
+                            {
+                                <tr class="@(item.NeedsReview ? "is-warned" : "")">
+                                    <td class="is-sticky-col"><ms-code>@item.ItemCode</ms-code></td>
+                                    <td>@item.Name</td>
+                                    <td>@item.KindName</td>
+                                    <td>
+                                        @(item.CategoryName ?? "—")
+                                        @if (item.NeedsReview)
+                                        {
+                                            <state-chip role="warning" label="Needs a category"></state-chip>
+                                        }
+                                    </td>
+                                    <td class="ms-table__num">@item.RecordCount.ToString("N0")</td>
+                                    <td class="ms-micro">@item.FirstSeenUtc.ToString("yyyy-MM-dd")</td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (Model.Catalog.Count > 500)
+                    {
+                        <p class="ms-sentence ms-sentence--muted">
+                            The first 500 of @Model.Catalog.Count.ToString("N0") are shown.
+                        </p>
+                    }
+                </div>
+            </div>
+        }
+    </section>
+</div>
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

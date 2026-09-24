@@ -1,0 +1,22 @@
+@model (IReadOnlyList<ValidationTodoRow> Todos, int StepNo, bool CanWrite, string SubmitText)
+
+@* The blocking sentence sits at the LEFT of the save bar, beside the button it disables.
+   Never a red dot alone. *@
+@{
+    var blocking = Model.Todos.Where(t => t.StepNo == Model.StepNo && t.Severity == "BLOCK").ToList();
+}
+<div class="ms-savebar">
+    @if (blocking.Count > 0)
+    {
+        <div class="ms-savebar__reason">@blocking[0].Sentence</div>
+    }
+    else
+    {
+        <div class="ms-savebar__reason"></div>
+    }
+
+    @if (Model.CanWrite)
+    {
+        <button type="submit" class="ms-btn ms-btn--primary">@Model.SubmitText</button>
+    }
+</div>

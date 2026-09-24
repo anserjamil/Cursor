@@ -1,0 +1,172 @@
+@model RlsViewModel
+@{
+    ViewData["Title"] = "Organisation scope";
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Administration</div>
+    <div class="ms-hero__line">Which organisations each person can see into.</div>
+    <p class="ms-hero__sub">
+        Every read in the application joins the row's organisation to the viewer's scope —
+        including the drilldown behind every count. Two people looking at the same cycle
+        legitimately see different numbers, and this screen is where that stops being
+        surprising.
+    </p>
+
+    <div class="ms-hero__stats">
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.GrantedCount.ToString("N0")</div>
+            <div class="ms-stat__label">Granted to you</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.TotalCount.ToString("N0")</div>
+            <div class="ms-stat__label">Organisation units</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">
+                <share-text count="@Model.GrantedCount" total="@Model.TotalCount"></share-text>
+            </div>
+            <div class="ms-stat__label">Of the tree</div>
+        </div>
+    </div>
+</div>
+
+<div class="ms-toolbar">
+    <form method="get" class="ms-toolbar__search">
+        <label class="ms-micro">
+            Compare with
+            <select name="compare" class="ms-select" aria-label="Compare with">
+                <option value="">Nobody</option>
+                @foreach (var user in Model.Users)
+                {
+                    <option value="@user.LoginName" selected="@(Model.CompareWith == user.LoginName)">
+                        @user.DisplayName (@user.LoginName)
+                    </option>
+                }
+            </select>
+        </label>
+        <button type="submit" class="ms-btn">Compare</button>
+    </form>
+    <span class="ms-topbar__spacer"></span>
+    <span class="ms-micro">Reading as <ms-code>@Model.Viewer</ms-code></span>
+</div>
+
+@if (Model.Comparison.Count > 0)
+{
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <h2 class="ms-card__title">The same question, asked by two people</h2>
+        </div>
+        <div class="ms-card__body">
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr>
+                            <th class="is-sticky-col">Viewer</th>
+                            <th class="ms-table__num">Organisations</th>
+                            <th class="ms-table__num">People</th>
+                            <th class="ms-table__num">In open pools</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Comparison)
+                    {
+                        <tr>
+                            <td class="is-sticky-col">
+                                <ms-code>@row.Login</ms-code>
+                                <div class="ms-micro">@row.WhichLogin</div>
+                            </td>
+                            <td class="ms-table__num">@row.Units.ToString("N0")</td>
+                            <td class="ms-table__num">@row.People.ToString("N0")</td>
+                            <td class="ms-table__num">@row.InPools.ToString("N0")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p class="ms-sentence ms-sentence--muted">
+                Neither figure is wrong. They are answers to the same question asked by two
+                people with different grants, which is exactly what the scope is for.
+            </p>
+        </div>
+    </section>
+}
+
+<section class="ms-card">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">The organisation tree</h2>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">
+            A grant carries down the tree, so granting a node grants everything beneath it.
+        </span>
+    </div>
+    <div class="ms-card__body">
+        <div class="ms-table-wrap" data-table>
+            <table class="ms-table">
+                <thead>
+                    <tr>
+                        <th class="is-sticky-col">Organisation</th>
+                        <th>Code</th>
+                        <th class="ms-table__num">Level</th>
+                        <th class="ms-table__num">People</th>
+                        <th>You</th>
+                        @if (Model.CompareWith is not null)
+                        {
+                            <th>@Model.CompareWith</th>
+                            <th>Difference</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var node in Model.Tree)
+                {
+                    <tr class="@(node.IsActive ? "" : "is-muted")">
+                        @* The depth is drawn as indentation and stated as a number, because
+                           indentation alone does not survive a sort. *@
+                        <td class="is-sticky-col" style="padding-left:@(18 + node.OrgLevel * 16)px">
+                            @node.Name
+                        </td>
+                        <td><ms-code>@node.OrgCode</ms-code></td>
+                        <td class="ms-table__num">@node.OrgLevel</td>
+                        <td class="ms-table__num">@node.HeadCount.ToString("N0")</td>
+                        <td>
+                            @if (node.IsGranted)
+                            {
+                                <state-chip role="success" label="Granted"></state-chip>
+                            }
+                            else
+                            {
+                                <span class="ms-table__recessive">Not granted</span>
+                            }
+                        </td>
+                        @if (Model.CompareWith is not null)
+                        {
+                            <td>
+                                @if (node.IsGrantedCompare == true)
+                                {
+                                    <state-chip role="success" label="Granted"></state-chip>
+                                }
+                                else
+                                {
+                                    <span class="ms-table__recessive">Not granted</span>
+                                }
+                            </td>
+                            <td>
+                                @if (node.IsGranted != (node.IsGrantedCompare ?? false))
+                                {
+                                    <state-chip role="warning"
+                                                label="@(node.IsGranted ? "Only you" : "Only them")"></state-chip>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

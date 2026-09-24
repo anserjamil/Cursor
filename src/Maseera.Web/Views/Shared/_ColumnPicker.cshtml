@@ -1,0 +1,38 @@
+@model (IReadOnlyList<ColumnCatalogRow> Columns, IReadOnlyList<string> Active, bool IsAdministrator)
+
+@* The ~200-column employee record, grouped and searchable. A sensitive column is
+   offered here — it is readable on a record — and refused as a filter, which the
+   filter popover says in words when it is tried. *@
+<div class="ms-popover ms-popover--picker" data-column-picker hidden>
+    <input type="search" class="ms-input" placeholder="Search columns" data-columns-search aria-label="Search columns" />
+
+    <div class="ms-popover__values">
+        @foreach (var group in Model.Columns.GroupBy(c => c.GroupName).OrderBy(g => g.Key))
+        {
+            <div class="ms-micro">@group.Key</div>
+            @foreach (var column in group.OrderBy(c => c.SortOrder))
+            {
+                <label class="ms-popover__value" data-column-row
+                       data-search="@((column.Caption + " " + column.ColumnName).ToLowerInvariant())">
+                    <input type="checkbox" data-column value="@column.ColumnName"
+                           checked="@Model.Active.Contains(column.ColumnName)" />
+                    <span class="ms-popover__text">@column.Caption</span>
+                    @if (column.IsSensitive)
+                    {
+                        <span class="ms-tag" title="Readable on a record, refused as a filter">Sensitive</span>
+                    }
+                </label>
+            }
+        }
+    </div>
+
+    <div class="ms-popover__foot">
+        <button type="button" class="ms-btn ms-btn--sm" data-columns-reset>Reset</button>
+        <button type="button" class="ms-btn ms-btn--sm" data-columns-save data-preset="false">Save as mine</button>
+        @if (Model.IsAdministrator)
+        {
+            <button type="button" class="ms-btn ms-btn--sm" data-columns-save data-preset="true">Make this the preset</button>
+        }
+        <button type="button" class="ms-btn ms-btn--sm ms-btn--primary" data-columns-apply>Apply</button>
+    </div>
+</div>

@@ -1,0 +1,65 @@
+@model IdpViewModel
+@{
+    ViewData["Title"] = "Individual development plan";
+    var state = Model.State;
+}
+
+<nav class="ms-breadcrumb" aria-label="Breadcrumb">
+    <a asp-controller="Cycles" asp-action="Index">Cycles</a>
+    <span aria-hidden="true">›</span>
+    <span>@state.ProcessName</span>
+    <span aria-hidden="true">›</span>
+    <span>@state.StageName</span>
+</nav>
+
+@await Component.InvokeAsync("StageTabs", new { tabs = Model.Tabs, state })
+
+@if (state.LockReason is not null)
+{
+    @await Html.PartialAsync("_ReadOnlyBar", state.LockReason)
+}
+
+<div data-idp
+     data-cycle-stage-id="@state.CycleStageId"
+     data-book-url="@Url.Action("Book")"
+     data-suggest-url="@Url.Action("Suggest")"
+     data-approve-url="@Url.Action("Approve")">
+
+    <div class="ms-tabs" role="tablist">
+        @foreach (var (key, caption) in new[]
+        {
+            ("overview", "Overview"),
+            ("person", "By person"),
+            ("booking", "Bulk booking"),
+            ("coverage", "Coverage")
+        })
+        {
+            <a class="ms-tabs__tab @(Model.ActiveTab == key ? "is-current" : "")"
+               role="tab" data-idp-tab
+               asp-action="Index" asp-route-cycleStageId="@state.CycleStageId"
+               asp-route-tab="@key" asp-route-personnelNo="@Model.PersonnelNo">@caption</a>
+        }
+    </div>
+
+    <div data-idp-panel>
+        @switch (Model.ActiveTab)
+        {
+            case "person":
+                @await Html.PartialAsync("_TabPerson", Model);
+                break;
+            case "booking":
+                @await Html.PartialAsync("_TabBooking", Model);
+                break;
+            case "coverage":
+                @await Html.PartialAsync("_TabCoverage", Model);
+                break;
+            default:
+                @await Html.PartialAsync("_TabOverview", Model);
+                break;
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script type="module" src="~/js/idp.js" asp-append-version="true"></script>
+}

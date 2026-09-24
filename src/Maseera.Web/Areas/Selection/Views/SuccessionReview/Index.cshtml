@@ -1,0 +1,86 @@
+@model SuccessionViewModel
+@{
+    ViewData["Title"] = "Succession review";
+}
+
+<nav class="ms-breadcrumb" aria-label="Breadcrumb">
+    <a asp-controller="Cycles" asp-action="Index">Cycles</a>
+    <span aria-hidden="true">›</span>
+    <span>@Model.State.ProcessName</span>
+    <span aria-hidden="true">›</span>
+    <span>@Model.State.StageName</span>
+</nav>
+
+@await Component.InvokeAsync("StageTabs", new { tabs = Model.Tabs, state = Model.State })
+
+@if (Model.State.LockReason is not null)
+{
+    @await Html.PartialAsync("_ReadOnlyBar", Model.State.LockReason)
+}
+
+<div class="ms-card">
+    <div class="ms-card__head">
+        <h3 class="ms-card__title">Readiness against each plan</h3>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">Decided by @(Model.State.PerformerName ?? "— not set")</span>
+    </div>
+
+    <div class="ms-card__body">
+        @if (Model.Plans.Rows.Count == 0)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Nothing has been planned yet",
+                 "Readiness is set against a plan, so somebody has to be planned into a department first.",
+                 (string?)null, (string?)null))
+        }
+
+        @foreach (var plan in Model.Plans.Rows)
+        {
+            <div class="ms-row">
+                <div>
+                    <strong>@plan.FullName</strong>
+                    <div class="ms-micro">
+                        <ms-code>@plan.PersonnelNo</ms-code> · planned in @plan.Department for @plan.PlanYear
+                    </div>
+                    @if (plan.Remark is not null)
+                    {
+                        <div class="ms-table__recessive">@plan.Remark</div>
+                    }
+                </div>
+
+                <span class="ms-topbar__spacer"></span>
+
+                @* The plan check: the framework requirement met, against the plan's own
+                   rule, showing where the days were actually served. *@
+                <button type="button" class="ms-btn ms-btn--sm" data-drawer-open="ms-drawer"
+                        data-src="@Url.Action("PlanCheck", new { planRowId = plan.SuccessionPlanRowId })">
+                    Plan check
+                </button>
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="SaveReadiness" class="ms-inline"
+                          data-confirm="Set readiness for @plan.FullName in @plan.Department?">
+                        <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                        <input type="hidden" name="planRowId" value="@plan.SuccessionPlanRowId" />
+                        <select class="ms-select ms-select--inline" name="levelCode" required aria-label="Readiness level">
+                            <option value="">Set a level</option>
+                            @foreach (var level in Model.Plans.Census)
+                            {
+                                <option value="@level.LevelCode" selected="@(level.LevelCode == plan.LevelCode)">
+                                    @level.LevelCode — @level.Name
+                                </option>
+                            }
+                        </select>
+                        <input class="ms-input ms-input--reason" name="remark" placeholder="Remark" aria-label="Remark" />
+                        <button type="submit" class="ms-btn ms-btn--sm">Set</button>
+                    </form>
+                }
+                else if (plan.LevelCode is not null)
+                {
+                    <span class="ms-tag">@plan.LevelCode — @plan.LevelName</span>
+                }
+            </div>
+        }
+    </div>
+</div>

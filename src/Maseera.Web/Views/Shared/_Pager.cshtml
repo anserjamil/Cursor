@@ -1,0 +1,31 @@
+@model (int PageNo, int PageCount, int TotalRows, int Shown)
+
+@* The true total is in the header: "240 shown of 12,480". Paging is the server's, so
+   these are links that change the query string and nothing else. *@
+<div class="ms-table-foot">
+    <div>
+        <span class="ms-num">@Model.Shown.ToString("N0")</span> shown of
+        <span class="ms-num">@Model.TotalRows.ToString("N0")</span>
+    </div>
+
+    @if (Model.PageCount > 1)
+    {
+        <div class="ms-pager">
+            <button type="button" class="ms-btn ms-btn--sm" data-page="@(Model.PageNo - 1)"
+                    disabled="@(Model.PageNo <= 1)">Previous</button>
+            <span class="ms-micro">Page <span class="ms-num">@Model.PageNo</span> of <span class="ms-num">@Model.PageCount</span></span>
+            <button type="button" class="ms-btn ms-btn--sm" data-page="@(Model.PageNo + 1)"
+                    disabled="@(Model.PageNo >= Model.PageCount)">Next</button>
+        </div>
+    }
+
+    <label class="ms-micro">
+        Rows
+        <select class="ms-select ms-select--inline" data-page-size aria-label="Rows per page">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="250">250</option>
+        </select>
+    </label>
+</div>

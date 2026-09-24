@@ -1,0 +1,24 @@
+@model IReadOnlyList<ScreenRow>
+
+@* The palette is a registry of everywhere you can go — stage screens included, because
+   they are faces of a cycle rather than absences. It navigates and nothing else. *@
+<input type="search" class="ms-palette__input" placeholder="Jump to a screen" aria-label="Jump to a screen" />
+<div class="ms-palette__list" role="listbox">
+    @foreach (var screen in Model.Where(s => s.CanRead))
+    {
+        <div class="ms-palette__item" role="option"
+             data-search="@((screen.Name + " " + screen.GroupCaption + " " + screen.ScreenCode).ToLowerInvariant())"
+             data-href="@Url.Action(screen.ActionName, screen.ControllerName, new { area = screen.AreaName })">
+            <span>@screen.Name</span>
+            <span class="ms-topbar__spacer"></span>
+            @if (screen.GroupCaption is not null)
+            {
+                <span class="ms-tag">@screen.GroupCaption</span>
+            }
+            else
+            {
+                <span class="ms-tag" title="Reached from a cycle, not from the menu">Stage</span>
+            }
+        </div>
+    }
+</div>

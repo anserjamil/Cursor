@@ -1,0 +1,86 @@
+@model PoolTrace
+@{
+    var header = Model.Header;
+}
+
+<div class="ms-trace">
+    @if (header is not null)
+    {
+        <div class="ms-trace__head">
+            <h3>@header.FullName</h3>
+            <div class="ms-micro">
+                <ms-code>@header.PersonnelNo</ms-code> · <ms-code>@header.OrgCode</ms-code>
+            </div>
+            <p class="ms-sentence ms-sentence--muted">
+                @* The pool is a snapshot taken when the cycle opened. It is never
+                   recomputed, so this reads what was true then, not what is true now. *@
+                They entered through <ms-code>@header.SourceCode</ms-code> on
+                @header.AddedOnUtc.ToString("yyyy-MM-dd")@(header.AddedByLogin is null
+                    ? ", when the pool was taken." : $", added by {header.AddedByLogin}.")
+                @if (header.SnapshotTakenOn is { } taken)
+                {
+                    <text>The snapshot behind this cycle was taken on @taken.ToString("yyyy-MM-dd").</text>
+                }
+            </p>
+        </div>
+    }
+
+    @if (Model.Rows.Count == 0)
+    {
+        <p class="ms-sentence ms-sentence--muted">
+            No criterion trace was captured for this person. They were either added by hand
+            or the cycle was opened before tracing was switched on.
+        </p>
+    }
+    else
+    {
+        <div class="ms-table-wrap">
+            <table class="ms-table">
+                <thead>
+                    <tr>
+                        <th class="is-sticky-col">Set</th>
+                        <th>What was asked</th>
+                        <th>Tested against</th>
+                        <th>What they had</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr class="@(row.Passed == false ? "is-failed" : "")">
+                        <td class="is-sticky-col">@(row.SetLabel ?? "—")</td>
+                        <td>
+                            @(row.FieldCaption ?? row.FieldName ?? "—")
+                            @if (row.OperatorName is not null)
+                            {
+                                <span class="ms-micro">@row.OperatorName</span>
+                            }
+                        </td>
+                        <td><ms-code>@(row.TestedValue ?? "—")</ms-code></td>
+                        <td><ms-code>@(row.ActualValue ?? "—")</ms-code></td>
+                        <td>
+                            @if (row.Passed is null)
+                            {
+                                <state-chip role="neutral" label="Not recorded"></state-chip>
+                            }
+                            else if (row.Passed.Value)
+                            {
+                                <state-chip role="success" label="Passed"></state-chip>
+                            }
+                            else
+                            {
+                                <state-chip role="danger" label="Failed"></state-chip>
+                            }
+                        </td>
+                    </tr>
+                    <tr class="ms-trace__sentence">
+                        @* The sentence the engine wrote at the time. It is the record. *@
+                        <td colspan="5" class="ms-micro">@row.Sentence</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

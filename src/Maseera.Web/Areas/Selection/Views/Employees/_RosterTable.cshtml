@@ -1,0 +1,64 @@
+@model RosterViewModel
+
+<div data-table data-sort-by="@Model.SortBy" data-sort-dir="@Model.SortDir">
+    <div class="ms-toolbar">
+        <input type="search" class="ms-input" data-table-search value="@Model.Search"
+               placeholder="Name, number, job or organisation" aria-label="Search the roster" />
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">@Model.ShownOfTotal</span>
+    </div>
+
+    @if (Model.Problem is not null)
+    {
+        <div class="ms-refusal" role="alert">
+            <div class="ms-refusal__title">That could not be read</div>
+            <p>@Model.Problem</p>
+        </div>
+    }
+
+    @if (Model.Rows.Count == 0)
+    {
+        @await Html.PartialAsync("_EmptyState",
+            ("Nobody to show",
+             "Either the roster has not been loaded yet, or nobody in it is in an organisation you have been granted.",
+             (string?)null, (string?)null))
+    }
+    else
+    {
+        <div class="ms-table-wrap">
+            <table class="ms-table">
+                <thead>
+                    <tr>
+                        <th class="is-sticky-col"><button type="button" class="ms-colfilter" data-sort="FullName">Name</button></th>
+                        <th><button type="button" class="ms-colfilter" data-sort="PersonnelNo">Personnel No</button></th>
+                        <th>Organisation</th>
+                        <th><button type="button" class="ms-colfilter" data-sort="JobTitle">Job</button></th>
+                        <th><button type="button" class="ms-colfilter" data-sort="PermJobSuffix">Suffix</button></th>
+                        <th><button type="button" class="ms-colfilter" data-sort="GradeCode">Grade</button></th>
+                        <th><button type="button" class="ms-colfilter" data-sort="HireDate">Hired</button></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var person in Model.Rows)
+                {
+                    <tr>
+                        <td class="is-sticky-col">
+                            <a asp-controller="Profile" asp-action="Index" asp-route-personnelNo="@person.PersonnelNo">
+                                @person.FullName
+                            </a>
+                        </td>
+                        <td><ms-code>@person.PersonnelNo</ms-code></td>
+                        <td>@person.OrgName</td>
+                        <td>@person.JobTitle</td>
+                        <td><ms-code>@person.PermJobSuffix</ms-code></td>
+                        <td><ms-code>@person.GradeCode</ms-code></td>
+                        <td><as-of-date value="@person.HireDate"></as-of-date></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @await Html.PartialAsync("_Pager", (Model.PageNo, Model.PageCount, Model.TotalRows, Model.Rows.Count))
+    }
+</div>

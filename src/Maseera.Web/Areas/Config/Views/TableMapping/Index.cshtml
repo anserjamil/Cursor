@@ -1,0 +1,182 @@
+@model TableMappingViewModel
+@{
+    ViewData["Title"] = "Table mapping";
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Configuration</div>
+    <div class="ms-hero__line">Every table the application reads.</div>
+    <p class="ms-hero__sub">
+        Each row names a table, what reads it, and what stops working when it is not
+        mapped. There is one database and its name is DB02; nothing here reaches outside
+        it.
+    </p>
+
+    <div class="ms-hero__stats">
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.Tables.Count.ToString("N0")</div>
+            <div class="ms-stat__label">Mapped sources</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.UnmappedCount.ToString("N0")</div>
+            <div class="ms-stat__label">Not resolving</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.RequiredUnmapped.ToString("N0")</div>
+            <div class="ms-stat__label">Required and missing</div>
+        </div>
+    </div>
+</div>
+
+@if (Model.RequiredUnmapped > 0)
+{
+    <p class="ms-sentence ms-sentence--warn">
+        @Model.RequiredUnmapped required @(Model.RequiredUnmapped == 1 ? "table is" : "tables are")
+        not resolving. Every screen reading them says so on the figure itself rather than
+        showing a zero that looks like an answer.
+    </p>
+}
+
+<div class="ms-toolbar">
+    <span class="ms-micro">
+        A mapping is checked against the database, not assumed. The column list under each
+        row is what was actually found.
+    </span>
+    <span class="ms-topbar__spacer"></span>
+    @if (Model.CanWrite)
+    {
+        <form method="post" asp-action="Discover" class="ms-inline-form">
+            <button type="submit" class="ms-btn">Re-read every table</button>
+        </form>
+    }
+</div>
+
+<div class="ms-cards">
+    @foreach (var table in Model.Tables.OrderBy(t => t.SortOrder))
+    {
+        var columns = Model.ColumnsBySource.TryGetValue(table.SourceKey, out var c) ? c : [];
+
+        <article class="ms-card @(table.IsMapped ? "" : table.IsRequired ? "is-warned" : "")">
+            <div class="ms-card__head">
+                <div>
+                    <ms-code>@table.SourceKey</ms-code>
+                    <h3 class="ms-card__title">@table.Caption</h3>
+                </div>
+                <span class="ms-topbar__spacer"></span>
+                @if (table.IsRequired)
+                {
+                    <span class="ms-tag">Required</span>
+                }
+                @if (table.IsMapped)
+                {
+                    <state-chip role="success" label="Resolving"></state-chip>
+                }
+                else
+                {
+                    <state-chip role="@(table.IsRequired ? "danger" : "warning")" label="Not found"></state-chip>
+                }
+            </div>
+
+            <div class="ms-card__body">
+                <dl class="ms-facts">
+                    <div><dt>Table</dt><dd><ms-code>@table.SchemaName.@table.TableName</ms-code></dd></div>
+                    <div>
+                        <dt>Person column</dt>
+                        <dd>
+                            <ms-code>@(table.KeyColumn ?? "—")</ms-code>
+                            @if (table.KeyColumnPresent == false)
+                            {
+                                <state-chip role="danger" label="Not on the table"></state-chip>
+                            }
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Item column</dt>
+                        <dd>
+                            <ms-code>@(table.ItemColumn ?? "—")</ms-code>
+                            @if (table.ItemColumnPresent == false)
+                            {
+                                <state-chip role="danger" label="Not on the table"></state-chip>
+                            }
+                        </dd>
+                    </div>
+                    <div><dt>Columns found</dt><dd><span class="ms-num">@table.ColumnCount.ToString("N0")</span></dd></div>
+                    <div><dt>Rows</dt><dd><span class="ms-num">@(table.RowCountCached?.ToString("N0") ?? "—")</span></dd></div>
+                    <div>
+                        <dt>Last loaded</dt>
+                        <dd>@(table.LastSyncUtc is { } sync ? sync.ToString("yyyy-MM-dd HH:mm") : "Never")</dd>
+                    </div>
+                    <div>
+                        <dt>Last checked</dt>
+                        <dd>@(table.LastCheckedUtc is { } checkedOn ? checkedOn.ToString("yyyy-MM-dd HH:mm") : "Never")</dd>
+                    </div>
+                </dl>
+
+                @if (table.ReadBy is not null)
+                {
+                    <p class="ms-sentence"><span class="ms-micro">Read by</span> @table.ReadBy</p>
+                }
+
+                @* What breaks. Stated ahead of time, so an unmapped table is never
+                   discovered as a mysterious zero on a stage screen. *@
+                @if (table.BreaksWhenUnmapped is not null)
+                {
+                    <p class="ms-sentence @(table.IsMapped ? "ms-sentence--muted" : "ms-sentence--warn")">
+                        <span class="ms-micro">Without it</span> @table.BreaksWhenUnmapped
+                    </p>
+                }
+
+                @if (columns.Count > 0)
+                {
+                    <details class="ms-details">
+                        <summary class="ms-micro">The columns that were found</summary>
+                        <div class="ms-table-wrap">
+                            <table class="ms-table ms-table--tight">
+                                <thead>
+                                    <tr><th>Column</th><th>SQL type</th><th>Reads as</th><th>Null</th></tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var column in columns.OrderBy(x => x.OrdinalPos))
+                                {
+                                    <tr>
+                                        <td><ms-code>@column.ColumnName</ms-code></td>
+                                        <td class="ms-micro">@column.SqlType</td>
+                                        <td><ms-code>@column.DataType</ms-code></td>
+                                        <td class="ms-micro">@(column.IsNullable ? "yes" : "no")</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                }
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="Save" class="ms-form ms-form--compact">
+                        <input type="hidden" name="sourceKey" value="@table.SourceKey" />
+                        <label class="ms-field">
+                            <span>Schema</span>
+                            <input name="schemaName" class="ms-input" value="@table.SchemaName" required />
+                        </label>
+                        <label class="ms-field">
+                            <span>Table</span>
+                            <input name="tableName" class="ms-input" value="@table.TableName" required />
+                        </label>
+                        <label class="ms-field">
+                            <span>Person column</span>
+                            <input name="keyColumn" class="ms-input" value="@table.KeyColumn" />
+                        </label>
+                        <label class="ms-field">
+                            <span>Item column</span>
+                            <input name="itemColumn" class="ms-input" value="@table.ItemColumn" />
+                        </label>
+                        <div class="ms-form__foot">
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Save and re-read</button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </article>
+    }
+</div>

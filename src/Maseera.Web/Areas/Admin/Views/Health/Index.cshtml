@@ -1,0 +1,124 @@
+@model HealthViewModel
+@{
+    ViewData["Title"] = "Health";
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">This machine</div>
+    <div class="ms-hero__line">
+        @if (Model.Report.HasFatal)
+        {
+            <text>Something the application depends on is not there.</text>
+        }
+        else if (!Model.Report.AllGreen)
+        {
+            <text>It runs, with things worth knowing about.</text>
+        }
+        else
+        {
+            <text>Everything the application depends on is there.</text>
+        }
+    </div>
+    <p class="ms-hero__sub">
+        The same check runs at startup. It fails loudly here rather than quietly on the
+        screen that needed the row. The health endpoint calls a procedure like everything
+        else — there is no SQL text in the application, not even a <ms-code>SELECT 1</ms-code>.
+    </p>
+</div>
+
+@foreach (var group in Model.Report.Lines.GroupBy(l => l.Group))
+{
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <h2 class="ms-card__title">@group.Key</h2>
+            <span class="ms-topbar__spacer"></span>
+            <span class="ms-micro">
+                @group.Count(l => l.IsOk).ToString("N0") of @group.Count().ToString("N0") passing
+            </span>
+        </div>
+        <div class="ms-card__body">
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr><th class="is-sticky-col">Check</th><th>Result</th><th>Note</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var line in group)
+                    {
+                        <tr class="@(line.IsOk ? "" : "is-warned")">
+                            <td class="is-sticky-col">@line.CheckName</td>
+                            <td>
+                                <state-chip role="@(line.IsOk ? "success" : "danger")"
+                                            label="@(line.IsOk ? "Passing" : "Failing")"></state-chip>
+                            </td>
+                            <td class="ms-micro">@(line.Note ?? "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+}
+
+@* ---- what has changed lately, from audit.ChangeLog ---------------------------- *@
+<section class="ms-card">
+    <div class="ms-card__head">
+        <h2 class="ms-card__title">Recent changes to configuration</h2>
+        <span class="ms-topbar__spacer"></span>
+        <span class="ms-micro">@Model.RecentChanges.TotalRows.ToString("N0") in the log</span>
+    </div>
+    <div class="ms-card__body">
+        @if (Model.RecentChanges.ByTable.Count > 0)
+        {
+            <div class="ms-chips">
+                @foreach (var table in Model.RecentChanges.ByTable.OrderByDescending(t => t.Changes))
+                {
+                    <span class="ms-chip">
+                        <ms-code>@table.TableName</ms-code>
+                        <span class="ms-num">@table.Changes.ToString("N0")</span>
+                    </span>
+                }
+            </div>
+        }
+
+        @if (Model.RecentChanges.Rows.Count == 0)
+        {
+            @await Html.PartialAsync("_EmptyState",
+                ("Nothing has been changed",
+                 "No configuration change has been recorded yet.",
+                 (string?)null, (string?)null))
+        }
+        else
+        {
+            <div class="ms-table-wrap">
+                <table class="ms-table">
+                    <thead>
+                        <tr>
+                            <th class="is-sticky-col">What</th>
+                            <th>Key</th>
+                            <th>Action</th>
+                            <th>By</th>
+                            <th>When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var change in Model.RecentChanges.Rows)
+                    {
+                        <tr>
+                            <td class="is-sticky-col"><ms-code>@change.TableName</ms-code></td>
+                            <td><ms-code>@(change.KeyText ?? "—")</ms-code></td>
+                            <td>@change.ActionCode</td>
+                            <td>
+                                @(change.ActorName ?? change.LoginName)
+                                <div class="ms-micro"><ms-code>@change.LoginName</ms-code></div>
+                            </td>
+                            <td class="ms-micro">@change.ChangedOnUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</section>

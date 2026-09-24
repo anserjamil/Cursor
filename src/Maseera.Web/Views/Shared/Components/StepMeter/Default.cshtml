@@ -1,0 +1,18 @@
+@model StepMeterModel
+
+@* ✓ done, – skipped, and the current step in ink. Readable in greyscale. *@
+<div class="ms-steps" role="navigation" aria-label="Design steps">
+    @foreach (var step in Model.Steps.OrderBy(s => s.SortOrder))
+    {
+        <a class="ms-step @Model.StateOf(step)"
+           asp-area="Selection" asp-controller="CycleSetup" asp-action="Step"
+           asp-route-cycleId="@Model.CycleId" asp-route-step="@step.StepNo"
+           title="@step.Description">
+            <span class="ms-step__no">@step.StepNo</span>
+            <span>@step.Caption</span>
+        </a>
+    }
+</div>
+
+@* "3 of 5 set · 1 skipped · still to do: Eligible pool." *@
+<div class="ms-progress-meter">@Model.Meter</div>

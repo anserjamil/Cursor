@@ -1,0 +1,12 @@
+@model (string Title, string Body, string? ActionText, string? ActionHref)
+
+@* Nobody qualifies. Not the same thing as the question failing, and it does not look
+   like it either. *@
+<div class="ms-empty">
+    <div class="ms-empty__title">@Model.Title</div>
+    <p class="ms-empty__body">@Model.Body</p>
+    @if (Model.ActionText is not null && Model.ActionHref is not null)
+    {
+        <a class="ms-btn ms-btn--primary" href="@Model.ActionHref">@Model.ActionText</a>
+    }
+</div>

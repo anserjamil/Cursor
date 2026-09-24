@@ -1,0 +1,95 @@
+@model ReportsViewModel
+@{
+    var result = Model.Result;
+    var columns = result?.Columns.OrderBy(c => c.SortOrder).ToList() ?? [];
+}
+
+@if (result is null)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("Nothing has been run yet", "Choose a report and press Run.", (string?)null, (string?)null))
+}
+else if (result.Problem is not null)
+{
+    @* "Nobody qualifies" and "the question could not be asked" are different answers, and
+       this is the second one: the report says why rather than drawing an empty table. *@
+    @await Html.PartialAsync("_Refusal", result.Problem)
+}
+else if (result.Rows.Count == 0)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("Nothing to count",
+         "The report ran and found nobody. That is an answer, not a failure.",
+         (string?)null, (string?)null))
+}
+else
+{
+    <div class="ms-table-wrap" data-table>
+        <table class="ms-table ms-table--report">
+            <thead>
+                <tr>
+                @foreach (var column in columns)
+                {
+                    <th class="@(column.Align == "right" ? "ms-table__num" : "") @(column.SortOrder == columns[0].SortOrder ? "is-sticky-col" : "")">
+                        @column.Caption
+                    </th>
+                }
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in result.Rows)
+            {
+                @* A decision's own colour travels with the row where the report carries it. *@
+                var role = ReportsViewModel.Cell(row, "DecisionRole") as string
+                           ?? ReportsViewModel.Cell(row, "SemanticRole") as string;
+
+                <tr>
+                @foreach (var column in columns)
+                {
+                    var first = column.SortOrder == columns[0].SortOrder;
+                    var value = ReportsViewModel.Cell(row, column.ColumnKey);
+
+                    <td class="@(column.Align == "right" ? "ms-table__num" : "") @(first ? "is-sticky-col" : "")">
+                        @switch (column.DataType)
+                        {
+                            case "share":
+                                var (count, total) = ReportsViewModel.Share(row);
+                                <share-text count="@count" total="@total"></share-text>
+                                break;
+
+                            case "number":
+                                <span class="ms-num">
+                                    @(value is null or DBNull ? "—" : Convert.ToDecimal(value).ToString("N0"))
+                                </span>
+                                break;
+
+                            case "code":
+                                <ms-code>@(value?.ToString() ?? "—")</ms-code>
+                                break;
+
+                            default:
+                                if (first && role is not null)
+                                {
+                                    <state-chip role="@role" label="@(value?.ToString() ?? "—")"></state-chip>
+                                }
+                                else
+                                {
+                                    @(value?.ToString() ?? "—")
+                                }
+                                break;
+                        }
+                    </td>
+                }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    @if (result.Note is not null)
+    {
+        @* The report says what it counted and against what. A figure without its
+           denominator is not an answer. *@
+        <p class="ms-sentence ms-sentence--muted">@result.Note</p>
+    }
+}

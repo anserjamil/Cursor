@@ -1,0 +1,33 @@
+@model FunnelModel
+
+@* One row of pills shared by Identify, Review and Calibration. Thin dividers between
+   the groups, and the outcome pill in solid ink on its own at the end. *@
+<div class="ms-funnel" role="group" aria-label="Funnel">
+    @{ var firstGroup = true; }
+    @foreach (var group in Model.Groups)
+    {
+        if (!firstGroup) { <span class="ms-funnel__divider" aria-hidden="true"></span> }
+        firstGroup = false;
+
+        foreach (var pill in group.OrderBy(p => p.SortOrder))
+        {
+            <button type="button"
+                    class="ms-funnel-pill @SemanticRoles.CssClass(pill.SemanticRole).Replace("ms-state--", "ms-funnel-pill--") @(Model.ActivePill == pill.PillCode ? "is-active" : "")"
+                    data-pill="@pill.PillCode"
+                    title="@pill.Tooltip"
+                    aria-pressed="@(Model.ActivePill == pill.PillCode ? "true" : "false")">
+                <span class="ms-funnel-pill__count">@pill.Cnt.ToString("N0")</span>
+                <span>@pill.Caption</span>
+            </button>
+        }
+    }
+
+    @if (Model.Outcome is { } outcome)
+    {
+        <span class="ms-funnel__divider" aria-hidden="true"></span>
+        <span class="ms-funnel-pill ms-funnel-pill--outcome" title="@outcome.Tooltip">
+            <span class="ms-funnel-pill__count">@outcome.Cnt.ToString("N0")</span>
+            <span>@outcome.Caption</span>
+        </span>
+    }
+</div>

@@ -1,0 +1,30 @@
+@model RefusalViewModel
+@{
+    ViewData["Title"] = Model.StatusCode == 403 ? "Not open to you" : "Nothing here";
+}
+
+<div class="ms-refusal" role="alert">
+    <div class="ms-refusal__title">
+        @if (Model.ScreenName is not null)
+        {
+            @: @Model.ScreenName is not open to you
+        }
+        else
+        {
+            @:@(Model.StatusCode == 404 ? "There is nothing at that address" : "This is not open to you")
+        }
+    </div>
+
+    @* The sentence comes from the database, and says which of the six rules decided it. *@
+    <p>@Model.Sentence</p>
+
+    @if (!Model.IsRegistered)
+    {
+        <p>
+            Your login, <span class="ms-code">@Model.LoginName</span>, has no record in Maseera yet.
+            An administrator adds people on the Access control screen.
+        </p>
+    }
+
+    <a class="ms-btn" asp-area="Selection" asp-controller="Cycles" asp-action="Index">Back to the cycles</a>
+</div>

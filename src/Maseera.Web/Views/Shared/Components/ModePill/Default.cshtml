@@ -1,0 +1,16 @@
+@model ModePillModel
+
+@if (Model.TestMode)
+{
+    <button type="button" class="ms-pill ms-pill--test" data-test-mode="on" title="@Model.Note">
+        Test mode
+    </button>
+}
+else if (Model.IsAdministrator)
+{
+    @* Offered only to an administrator, and refused again by the procedure. *@
+    <button type="button" class="ms-pill" data-test-mode="off"
+            title="Ignore every stage window. Each decision taken is stamped TEST in the log.">
+        Live
+    </button>
+}

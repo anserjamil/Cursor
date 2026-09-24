@@ -1,0 +1,107 @@
+// =====================================================================================
+// _tokens.scss — the visual system, fixed.
+//
+// Improve layout, hierarchy, rhythm and craft; do not change the palette or the type.
+// Everything below is a token. Nothing in a view carries a hex code, and neither does
+// the database: cfg.DomainValue.SemanticRole names a meaning and the stylesheet decides
+// what that looks like.
+// =====================================================================================
+
+// ---- colour -------------------------------------------------------------------------
+// Primary indigo, with the light fill, border and dark text that go with it.
+$pri:    oklch(0.47 0.16 262);
+$pri-bg: oklch(0.96 0.02 262);
+$pri-bd: oklch(0.88 0.05 262);
+$pri-d:  oklch(0.36 0.14 262);
+
+// Neutrals, darkest first.
+$ink:      #0f172a;   // body text
+$ink-700:  #334155;
+$ink-600:  #475569;
+$ink-500:  #64748b;
+$ink-400:  #94a3b8;
+$ink-300:  #cbd5e1;
+
+$page:     #f3f4f7;   // page background
+$surface:  #ffffff;   // cards
+$hairline: rgba(15, 23, 42, 0.10);
+
+// State. Amber is the watch list, red is dropped or disqualified, slate is undecided,
+// and solid ink is the outcome pill. No gradients. Light mode only.
+$warn:     #b45309;
+$warn-bg:  #fffbeb;
+$warn-bd:  #fde68a;
+
+$danger:   #b91c1c;
+$danger-bg:#fef2f2;
+$danger-bd:#fecaca;
+
+$good:     #15803d;
+$good-bg:  #f0fdf4;
+$good-bd:  #bbf7d0;
+
+$info:     #0369a1;
+$info-bg:  #f0f9ff;
+$info-bd:  #bae6fd;
+
+$muted:    $ink-500;
+$muted-bg: #f8fafc;
+$muted-bd: $ink-300;
+
+// ---- type ---------------------------------------------------------------------------
+// Three families and nothing else.
+$font-sans:  "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+$font-mono:  "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+$font-serif: "IBM Plex Serif", Georgia, serif;
+
+// Density: this is a small-type, high-density product. Do not scale it up.
+$fs-body:      13px;
+$fs-table:     12.5px;
+$fs-card-title:13.5px;
+$fs-section:   17px;
+$fs-hero:      26px;
+$fs-micro:     10.5px;   // uppercase, letter-spaced, mono
+
+$lh-body:  1.5;
+$lh-tight: 1.3;
+
+$fw-regular: 400;
+$fw-medium:  500;
+$fw-semi:    600;
+
+$tracking-micro: 0.06em;
+
+// ---- space --------------------------------------------------------------------------
+// A 4pt scale.
+$s1: 4px;
+$s2: 8px;
+$s3: 12px;
+$s4: 16px;
+$s5: 20px;
+$s6: 24px;
+$s7: 32px;
+$s8: 40px;
+$s9: 56px;
+
+$control-h:  36px;
+$row-pad-y:  13px;
+$row-pad-x:  18px;
+$topbar-h:   56px;
+$gutter:     26px;
+
+// ---- shape --------------------------------------------------------------------------
+$r-chip:  6px;
+$r-input: 10px;
+$r-row:   12px;
+$r-card:  14px;
+$r-modal: 18px;
+$r-pill:  999px;
+
+// Two elevation steps plus one for overlays. Hairline borders at 5–12% ink.
+$e1: 0 1px 2px rgba(15, 23, 42, 0.05);
+$e2: 0 2px 8px rgba(15, 23, 42, 0.08);
+$e3: 0 12px 32px rgba(15, 23, 42, 0.16);
+
+// ---- motion -------------------------------------------------------------------------
+$t-fast: 120ms;
+$t-base: 180ms;

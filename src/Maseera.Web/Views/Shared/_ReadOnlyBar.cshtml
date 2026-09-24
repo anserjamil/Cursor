@@ -1,0 +1,8 @@
+@model string
+
+@* The bar states WHICH reason applies: a closed cycle, a role that only reads, or a
+   design that belongs to somebody else. *@
+@if (!string.IsNullOrWhiteSpace(Model))
+{
+    <div class="ms-readonly-bar" role="status">@Model</div>
+}

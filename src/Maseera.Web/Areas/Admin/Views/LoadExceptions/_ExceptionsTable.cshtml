@@ -1,0 +1,89 @@
+@model LoadExceptionsViewModel
+
+<div class="ms-table-wrap" data-table data-page-no="@Model.PageNo" data-page-size="@Model.PageSize">
+    @if (Model.Rows.Count == 0)
+    {
+        @await Html.PartialAsync("_EmptyState",
+            ("Nothing was set aside",
+             "Every row of every mapped source found a person. That is the state to want.",
+             (string?)null, (string?)null))
+    }
+    else
+    {
+        <table class="ms-table">
+            <thead>
+                <tr>
+                    <th class="is-sticky-col">Source</th>
+                    <th>Key in the source</th>
+                    <th>Why it was set aside</th>
+                    <th>When</th>
+                    <th>Dealt with</th>
+                    @if (Model.CanWrite)
+                    {
+                        <th>Map it to a person</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in Model.Rows)
+            {
+                <tr class="@(row.IsResolved ? "is-muted" : "")">
+                    <td class="is-sticky-col">
+                        <ms-code>@row.SourceKey</ms-code>
+                        @if (row.SourceTable is not null)
+                        {
+                            <div class="ms-micro"><ms-code>@row.SourceTable</ms-code></div>
+                        }
+                    </td>
+                    <td><ms-code>@(row.KeyText ?? "—")</ms-code></td>
+                    <td>
+                        @row.ReasonText
+                        <div class="ms-micro"><ms-code>@row.ReasonCode</ms-code></div>
+                    </td>
+                    <td class="ms-micro">@row.CreatedOnUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>
+                        @if (row.IsResolved)
+                        {
+                            <state-chip role="success" label="Dealt with"></state-chip>
+                            <div class="ms-micro">
+                                @(row.ResolvedByLogin ?? "—")
+                                @(row.ResolvedOnUtc is { } when ? when.ToString("yyyy-MM-dd") : "")
+                            </div>
+                        }
+                        else if (Model.CanWrite)
+                        {
+                            <form method="post" asp-action="Resolve" class="ms-inline-form">
+                                <input type="hidden" name="loadExceptionId" value="@row.LoadExceptionId" />
+                                <button type="submit" class="ms-btn ms-btn--sm">Mark as dealt with</button>
+                            </form>
+                        }
+                    </td>
+                    @if (Model.CanWrite)
+                    {
+                        <td>
+                            @if (!row.IsResolved && row.KeyText is not null)
+                            {
+                                @* An alias is an exact statement that this key is that
+                                   person. The sync then picks its rows up. *@
+                                <form method="post" asp-action="MapAlias" class="ms-inline-form">
+                                    <input type="hidden" name="sourceKey" value="@row.SourceKey" />
+                                    <input type="hidden" name="aliasKey" value="@row.KeyText" />
+                                    <input name="personnelNo" class="ms-input ms-input--sm" required
+                                           placeholder="Personnel number"
+                                           aria-label="@($"Personnel number for {row.KeyText}")" />
+                                    <input name="note" class="ms-input ms-input--sm" placeholder="Why"
+                                           aria-label="Note" />
+                                    <button type="submit" class="ms-btn ms-btn--sm">Map</button>
+                                </form>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    @await Html.PartialAsync("_Pager",
+        (Model.PageNo, Model.PageCount, Model.TotalRows, Model.Rows.Count))
+</div>

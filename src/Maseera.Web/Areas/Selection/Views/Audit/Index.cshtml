@@ -1,0 +1,66 @@
+@model DecisionLogViewModel
+@{
+    ViewData["Title"] = "Decision log";
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Audit</div>
+    <div class="ms-hero__line">Every decision, and who took it.</div>
+    <p class="ms-hero__sub">
+        Decisions are never overwritten. A change is a new row, so the log reads as a
+        history rather than a current state. Anything taken in test mode is stamped
+        <span class="ms-tag ms-tag--test">TEST</span> and stays stamped.
+    </p>
+</div>
+
+<div class="ms-toolbar">
+    <form method="get" class="ms-toolbar__search">
+        <select name="cycleId" class="ms-select" aria-label="Cycle">
+            <option value="">Every cycle</option>
+            @foreach (var cycle in Model.Cycles)
+            {
+                <option value="@cycle.CycleId" selected="@(Model.CycleId == cycle.CycleId)">@cycle.Name</option>
+            }
+        </select>
+        <input type="search" name="q" value="@Model.Search" class="ms-input"
+               placeholder="Search by name, personnel number or reason" aria-label="Search the log" />
+        <label class="ms-check">
+            <input type="checkbox" name="testOnly" value="true" checked="@(Model.TestOnly == true)" />
+            Test decisions only
+        </label>
+        <button type="submit" class="ms-btn">Apply</button>
+    </form>
+
+    <span class="ms-topbar__spacer"></span>
+
+    <a class="ms-btn ms-btn--sm" asp-action="Download" asp-route-cycleId="@Model.CycleId"
+       asp-route-decision="@Model.ActiveDecision" asp-route-q="@Model.Search" asp-route-format="csv">CSV</a>
+    <a class="ms-btn ms-btn--sm" asp-action="Download" asp-route-cycleId="@Model.CycleId"
+       asp-route-decision="@Model.ActiveDecision" asp-route-q="@Model.Search" asp-route-format="xlsx">Excel</a>
+</div>
+
+@* The words are cfg.DomainValue rows with their own counts, so a decision word that was
+   never used simply does not appear. *@
+<div class="ms-chips" role="group" aria-label="Filter by decision">
+    <a class="ms-chip @(Model.ActiveDecision is null ? "is-current" : "")"
+       asp-action="Index" asp-route-cycleId="@Model.CycleId" asp-route-q="@Model.Search"
+       asp-route-testOnly="@Model.TestOnly">
+        Everything
+        <span class="ms-num">@Model.Log.Chips.Sum(c => c.Cnt).ToString("N0")</span>
+    </a>
+    @foreach (var chip in Model.Log.Chips.OrderBy(c => c.SortOrder))
+    {
+        <a class="ms-chip @SemanticRoles.CssClass(chip.SemanticRole) @(Model.ActiveDecision == chip.DecisionCode ? "is-current" : "")"
+           asp-action="Index" asp-route-cycleId="@Model.CycleId" asp-route-decision="@chip.DecisionCode"
+           asp-route-q="@Model.Search" asp-route-testOnly="@Model.TestOnly">
+            @chip.DecisionName
+            <span class="ms-num">@chip.Cnt.ToString("N0")</span>
+        </a>
+    }
+</div>
+
+@await Html.PartialAsync("_LogTable", Model)
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

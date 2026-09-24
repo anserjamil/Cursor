@@ -1,0 +1,76 @@
+@model LoadExceptionsViewModel
+@{
+    ViewData["Title"] = "Load exceptions";
+    var unresolved = Model.BySource.Sum(b => b.Unresolved);
+}
+
+<div class="ms-hero ms-hero--tight">
+    <div class="ms-hero__eyebrow">Administration</div>
+    <div class="ms-hero__line">Rows the loads could not place.</div>
+    <p class="ms-hero__sub">
+        A row that cannot be matched to a person is set aside here rather than dropped.
+        That is the difference between a wrong number somebody catches and a wrong number
+        nobody does. The answer to a mismatched personnel number is an alias — never a
+        fuzzy match on a name.
+    </p>
+
+    <div class="ms-hero__stats">
+        <div class="ms-stat">
+            <div class="ms-stat__value">@unresolved.ToString("N0")</div>
+            <div class="ms-stat__label">Still open</div>
+        </div>
+        <div class="ms-stat">
+            <div class="ms-stat__value">@Model.BySource.Count(b => b.Unresolved > 0).ToString("N0")</div>
+            <div class="ms-stat__label">Sources affected</div>
+        </div>
+    </div>
+</div>
+
+<div class="ms-chips" role="group" aria-label="Filter by source">
+    <a class="ms-chip @(Model.SourceKey is null ? "is-current" : "")"
+       asp-action="Index" asp-route-includeResolved="@Model.IncludeResolved" asp-route-q="@Model.Search">
+        Every source <span class="ms-num">@unresolved.ToString("N0")</span>
+    </a>
+    @foreach (var (sourceKey, count) in Model.BySource.OrderByDescending(b => b.Unresolved))
+    {
+        <a class="ms-chip @(Model.SourceKey == sourceKey ? "is-current" : "")"
+           asp-action="Index" asp-route-source="@sourceKey"
+           asp-route-includeResolved="@Model.IncludeResolved" asp-route-q="@Model.Search">
+            @sourceKey <span class="ms-num">@count.ToString("N0")</span>
+        </a>
+    }
+</div>
+
+<div class="ms-toolbar">
+    <form method="get" class="ms-toolbar__search">
+        <input type="hidden" name="source" value="@Model.SourceKey" />
+        <input type="search" name="q" value="@Model.Search" class="ms-input"
+               placeholder="Search by key or reason" aria-label="Search exceptions" />
+        <label class="ms-check">
+            <input type="checkbox" name="includeResolved" value="true" checked="@Model.IncludeResolved" />
+            Include the ones dealt with
+        </label>
+        <button type="submit" class="ms-btn">Apply</button>
+    </form>
+
+    <span class="ms-topbar__spacer"></span>
+
+    @if (Model.CanWrite)
+    {
+        @* The loads themselves. Neither is destructive: both re-read the mapped tables. *@
+        <form method="post" asp-action="LoadRoster" class="ms-inline-form">
+            <button type="submit" class="ms-btn"
+                    title="Re-read the roster and rebuild the organisation tree">Load the roster</button>
+        </form>
+        <form method="post" asp-action="SyncEvidence" class="ms-inline-form">
+            <button type="submit" class="ms-btn"
+                    title="Re-read every mapped evidence source and rebuild the metrics">Sync the evidence</button>
+        </form>
+    }
+</div>
+
+@await Html.PartialAsync("_ExceptionsTable", Model)
+
+@section Scripts {
+    <script type="module" src="~/js/tables.js" asp-append-version="true"></script>
+}

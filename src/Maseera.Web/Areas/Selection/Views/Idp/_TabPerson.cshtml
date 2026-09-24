@@ -1,0 +1,269 @@
+@model IdpViewModel
+@{
+    var plan = Model.Person;
+    var header = plan?.Header;
+}
+
+@if (header is null)
+{
+    @await Html.PartialAsync("_EmptyState",
+        ("Pick somebody",
+         "The by-person tab shows one whole plan at a time. Open a person from the overview, or search for them here.",
+         (string?)null, (string?)null))
+    return;
+}
+
+<div class="ms-card">
+    <div class="ms-card__head">
+        <div>
+            <h3 class="ms-card__title">@header.FullName</h3>
+            <div class="ms-micro">
+                <ms-code>@header.PersonnelNo</ms-code> · @header.OrgName · @header.JobTitle
+                @if (header.LevelCode is not null)
+                {
+                    <span class="ms-tag">@header.LevelCode</span>
+                }
+            </div>
+        </div>
+
+        <span class="ms-topbar__spacer"></span>
+
+        <div class="ms-micro">
+            @header.PlannedCount of @header.OpenCount planned · @header.MetCount already met
+        </div>
+
+        <state-chip role="@(header.PlanState switch
+                  {
+                      "APPROVED" => "positive",
+                      "COMPLETE" => "info",
+                      "IN_PROGRESS" => "warning",
+                      _ => "neutral"
+                  })"
+                    label="@(header.PlanState switch
+                  {
+                      "APPROVED" => "Approved",
+                      "COMPLETE" => "Ready to approve",
+                      "IN_PROGRESS" => "In progress",
+                      _ => "No plan yet"
+                  })"></state-chip>
+    </div>
+
+    <div class="ms-card__body">
+        <div class="ms-toolbar">
+            <form method="post" asp-action="SaveTarget" class="ms-inline">
+                <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                <input type="hidden" name="personnelNo" value="@header.PersonnelNo" />
+                <label class="ms-field ms-field--inline">
+                    <span class="ms-field__label">Target completion</span>
+                    <input class="ms-input" type="date" name="targetDate"
+                           value="@header.TargetDate?.ToString("yyyy-MM-dd")" disabled="@(!Model.CanWrite)" />
+                </label>
+                @if (Model.CanWrite)
+                {
+                    <button type="submit" class="ms-btn ms-btn--sm">Set</button>
+                }
+                <span class="ms-field__hint">
+                    @if (header.TargetIsOverridden)
+                    {
+                        @:Set by hand. Clear the date to go back to the derived one.
+                    }
+                    else
+                    {
+                        @:Derived from the readiness level: the stage window's start plus six months per level.
+                    }
+                </span>
+            </form>
+
+            <span class="ms-topbar__spacer"></span>
+
+            @if (Model.CanWrite)
+            {
+                <button type="button" class="ms-btn ms-btn--sm" data-suggest="@header.PersonnelNo">Suggest</button>
+
+                @* Approval is at plan level, never per requirement. *@
+                <button type="button" class="ms-btn ms-btn--primary ms-btn--sm"
+                        data-approve="@header.PersonnelNo"
+                        disabled="@(header.PlanState is not ("COMPLETE" or "APPROVED"))">
+                    Approve and notify
+                </button>
+            }
+        </div>
+
+        @if (header.IsOverdue)
+        {
+            <div class="ms-readonly-bar ms-readonly-bar--warning" role="status">
+                This plan is past its target date of @AsOf.Date(header.TargetDate) and is still open.
+            </div>
+        }
+
+        @if (Model.Conflicts.Count > 0)
+        {
+            <div class="ms-row ms-row--warning">
+                <strong>@Model.Conflicts.Count conflict@(Model.Conflicts.Count == 1 ? "" : "s")</strong>
+                <ul>
+                    @foreach (var conflict in Model.Conflicts)
+                    {
+                        <li>@conflict.Sentence</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @* Every requirement, met ones included but greyed, so the plan reads whole. *@
+        @foreach (var item in plan!.Items)
+        {
+            var sessions = plan.Sessions.Where(s => s.DevEventId == item.DevEventId).ToList();
+
+            <div class="ms-idp-item @(item.IsMet == 1 ? "is-met" : "")" data-idp-item>
+                <div>
+                    <div class="ms-idp-item__name">
+                        @item.EventName
+                        @if (item.IsMust == 1)
+                        {
+                            <span class="ms-tag">Must</span>
+                        }
+                        @* Two requirements with the same name from different sources show
+                           their item code, so they cannot be confused. *@
+                        @if (item.NameIsAmbiguous)
+                        {
+                            <span class="ms-idp-item__code">@item.ItemCode</span>
+                        }
+                    </div>
+                    <div class="ms-idp-item__sources">
+                        asked for by @item.Sources
+                        @if (item.Why is not null)
+                        {
+                            <span class="ms-ladder__why">@item.Why</span>
+                        }
+                    </div>
+                </div>
+
+                <div>
+                    @if (item.IsMet == 1)
+                    {
+                        <span class="ms-state ms-state--positive">Met</span>
+                    }
+                    else if (Model.CanWrite)
+                    {
+                        <form method="post" asp-action="@(sessions.Count > 0 ? "Book" : "Pencil")" data-ajax>
+                            <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                            <input type="hidden" name="personnelNo" value="@header.PersonnelNo" />
+                            <input type="hidden" name="devEventId" value="@item.DevEventId" />
+                            <input type="hidden" name="tab" value="person" />
+
+                            <select class="ms-select" name="devSessionId" data-session-picker
+                                    aria-label="Session for @item.EventName">
+                                <option value="">Not planned</option>
+                                @foreach (var session in sessions)
+                                {
+                                    <option value="@session.DevSessionId"
+                                            selected="@(session.DevSessionId == item.DevSessionId)"
+                                            data-after-target="@session.IsAfterTarget.ToString().ToLowerInvariant()"
+                                            disabled="@(session.SeatsLeft is <= 0 && session.DevSessionId != item.DevSessionId)">
+                                        @session.SessionCode
+                                        @(session.StartDate is null ? "" : " — " + AsOf.Date(session.StartDate))
+                                        @(session.SeatsLeft is null ? "" : $" ({session.SeatsLeft} left)")
+                                    </option>
+                                }
+                                @* The last option, always. *@
+                                <option value="PENCIL" selected="@(item.PencilledDate is not null)">Pencil in a date</option>
+                            </select>
+
+                            <input class="ms-input" type="date" name="pencilledDate" data-pencil-date
+                                   value="@item.PencilledDate?.ToString("yyyy-MM-dd")"
+                                   hidden="@(item.PencilledDate is null)" aria-label="Pencilled date" />
+
+                            <span data-late-warning hidden class="ms-state ms-state--warning">After the target date</span>
+                        </form>
+                    }
+                    else if (item.SessionCode is not null)
+                    {
+                        <span class="ms-readonly-value">@item.SessionCode — @AsOf.Date(item.SessionStart)</span>
+                    }
+                    else if (item.PencilledDate is not null)
+                    {
+                        <span class="ms-readonly-value">Pencilled for @AsOf.Date(item.PencilledDate)</span>
+                    }
+                    else
+                    {
+                        <span class="ms-readonly-value">Not planned</span>
+                    }
+                </div>
+
+                <div>
+                    @if (item.CoverageDays is > 0)
+                    {
+                        <span class="ms-num">@item.CoverageDays.Value.ToString("N0")</span>
+                        <span class="ms-micro">coverage days</span>
+                    }
+                    else if (item.StatusName is not null)
+                    {
+                        <state-chip role="@item.StatusRole" label="@item.StatusName"></state-chip>
+                    }
+                </div>
+            </div>
+        }
+
+        <h4 class="ms-micro">Coverage</h4>
+        @foreach (var coverage in plan.Coverage)
+        {
+            <div class="ms-row">
+                <div>
+                    @(coverage.Department ?? coverage.PositionCode ?? "Coverage")
+                    <div class="ms-micro">
+                        <as-of-date value="@coverage.StartDate"></as-of-date> –
+                        <as-of-date value="@coverage.EndDate"></as-of-date>
+                    </div>
+                </div>
+                <span class="ms-topbar__spacer"></span>
+                <span class="ms-num">@coverage.Days.ToString("N0")</span>
+                <span class="ms-micro">days</span>
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="RemoveCoverage" class="ms-inline"
+                          data-confirm="Remove this coverage? The days are given back.">
+                        <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                        <input type="hidden" name="idpCoverageId" value="@coverage.IdpCoverageId" />
+                        <input type="hidden" name="tab" value="person" />
+                        <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost">Remove</button>
+                    </form>
+                }
+            </div>
+        }
+
+        @if (Model.CanWrite)
+        {
+            <form method="post" asp-action="AddCoverage" class="ms-row">
+                <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                <input type="hidden" name="personnelNo" value="@header.PersonnelNo" />
+                <input type="hidden" name="tab" value="person" />
+                <input class="ms-input" name="department" placeholder="Department" aria-label="Department" />
+                <input class="ms-input" type="date" name="startDate" required aria-label="Start" />
+                <input class="ms-input" type="date" name="endDate" required aria-label="End" />
+                <button type="submit" class="ms-btn ms-btn--sm">Assign coverage</button>
+                <span class="ms-field__hint">Coverage costs leave, so it is never assigned automatically.</span>
+            </form>
+        }
+
+        <h4 class="ms-micro">Notes</h4>
+        @foreach (var note in plan.Notes)
+        {
+            <div class="ms-row ms-row--muted">
+                <div>
+                    @note.NoteText
+                    <div class="ms-micro">@note.ActorLogin · @note.AddedOnUtc.ToString("d MMM yyyy")</div>
+                </div>
+            </div>
+        }
+
+        @if (Model.CanWrite)
+        {
+            <form method="post" asp-action="AddNote" class="ms-row">
+                <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                <input type="hidden" name="personnelNo" value="@header.PersonnelNo" />
+                <input class="ms-input" name="noteText" placeholder="Add a note" required aria-label="Note" />
+                <button type="submit" class="ms-btn ms-btn--sm">Add</button>
+            </form>
+        }
+    </div>
+</div>

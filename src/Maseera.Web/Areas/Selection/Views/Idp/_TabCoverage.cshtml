@@ -1,0 +1,140 @@
+@model IdpViewModel
+
+@*
+   The per-incumbent form: department or position, start, end, the computed day count,
+   the incumbent's demand and the successors available. Coverage is never auto-assigned,
+   so this is the only place it is created.
+*@
+<div class="ms-split">
+    <section class="ms-card">
+        <div class="ms-card__head">
+            <h3 class="ms-card__title">Assignments</h3>
+            <span class="ms-topbar__spacer"></span>
+            <form method="get" class="ms-inline">
+                <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                <input type="hidden" name="tab" value="coverage" />
+                <input type="search" class="ms-input" name="q" value="@Model.Search"
+                       placeholder="Search" aria-label="Search coverage" />
+                <button type="submit" class="ms-btn ms-btn--sm">Search</button>
+            </form>
+        </div>
+
+        <div class="ms-card__body">
+            @if (Model.CoverageAssignments.Count == 0)
+            {
+                @await Html.PartialAsync("_EmptyState",
+                    ("No coverage has been assigned",
+                     "Coverage costs leave, so nothing here is assigned automatically. Each spell is a decision somebody takes.",
+                     (string?)null, (string?)null))
+            }
+
+            @foreach (var coverage in Model.CoverageAssignments)
+            {
+                <div class="ms-row">
+                    <div>
+                        <strong>@coverage.FullName</strong>
+                        <div class="ms-micro">
+                            covering @(coverage.Department ?? coverage.PositionCode ?? "a department")
+                            @if (coverage.IncumbentName is not null)
+                            {
+                                @:for @coverage.IncumbentName
+                            }
+                        </div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    <div class="ms-micro">
+                        <as-of-date value="@coverage.StartDate"></as-of-date> –
+                        <as-of-date value="@coverage.EndDate"></as-of-date>
+                    </div>
+                    <span class="ms-num">@coverage.Days.ToString("N0")</span>
+                    <span class="ms-micro">days</span>
+
+                    @if (Model.CanWrite)
+                    {
+                        <form method="post" asp-action="RemoveCoverage" class="ms-inline"
+                              data-confirm="Remove this coverage? The days are given back to @coverage.FullName.">
+                            <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                            <input type="hidden" name="idpCoverageId" value="@coverage.IdpCoverageId" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--ghost">Remove</button>
+                        </form>
+                    }
+                </div>
+            }
+
+            @if (Model.Conflicts.Count > 0)
+            {
+                <h4 class="ms-micro">Conflicts</h4>
+                @foreach (var conflict in Model.Conflicts)
+                {
+                    <div class="ms-row ms-row--warning">@conflict.Sentence</div>
+                }
+            }
+        </div>
+    </section>
+
+    <aside class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">Successors available</h3></div>
+        <div class="ms-card__body">
+            @if (Model.CanWrite)
+            {
+                <form method="post" asp-action="AddCoverage" class="ms-coverage-form">
+                    <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+                    <input type="hidden" name="tab" value="coverage" />
+
+                    <label class="ms-field">
+                        <span class="ms-field__label">Who is covering</span>
+                        <input class="ms-input ms-code" name="personnelNo" required
+                               list="ms-successors" aria-label="Personnel number" />
+                    </label>
+
+                    <label class="ms-field">
+                        <span class="ms-field__label">Department or position</span>
+                        <input class="ms-input" name="department" aria-label="Department" />
+                    </label>
+
+                    <div class="ms-field-row">
+                        <label class="ms-field">
+                            <span class="ms-field__label">From</span>
+                            <input class="ms-input" type="date" name="startDate" required />
+                        </label>
+                        <label class="ms-field">
+                            <span class="ms-field__label">To</span>
+                            <input class="ms-input" type="date" name="endDate" required />
+                        </label>
+                    </div>
+
+                    <p class="ms-field__hint">
+                        The day count is computed when it is saved, and the days are deducted
+                        from that person's balance.
+                    </p>
+
+                    <button type="submit" class="ms-btn ms-btn--primary">Assign</button>
+                </form>
+
+                <datalist id="ms-successors">
+                    @foreach (var successor in Model.Successors)
+                    {
+                        <option value="@successor.PersonnelNo">@successor.FullName</option>
+                    }
+                </datalist>
+            }
+
+            @foreach (var successor in Model.Successors)
+            {
+                <div class="ms-row">
+                    <div>
+                        @successor.FullName
+                        <div class="ms-micro"><ms-code>@successor.PersonnelNo</ms-code> · @successor.OrgName</div>
+                    </div>
+                    <span class="ms-topbar__spacer"></span>
+                    <div class="ms-micro" title="Assigned in this plan">
+                        <span class="ms-num">@successor.DaysPlanned.ToString("N0")</span> planned
+                    </div>
+                    <div class="ms-micro" title="Already recorded against them">
+                        <span class="ms-num">@successor.DaysRecorded.ToString("N0")</span> recorded
+                    </div>
+                </div>
+            }
+        </div>
+    </aside>
+</div>

@@ -1,0 +1,129 @@
+@model CycleSetupListViewModel
+@{
+    ViewData["Title"] = "Cycle design";
+}
+
+<div class="ms-hero">
+    <div class="ms-hero__eyebrow">Configuration</div>
+    <div class="ms-hero__line">Every design, and which step is still missing from it.</div>
+    <p class="ms-hero__sub">
+        Configured is shown as five tracks rather than a percentage, so you can see what
+        is unfinished without having to read a number and work out what it stands for.
+    </p>
+</div>
+
+<div class="ms-toolbar">
+    <form method="get" class="ms-toolbar__search">
+        <input type="search" name="q" value="@Model.Search" class="ms-input"
+               placeholder="Search designs" aria-label="Search designs" />
+        <button type="submit" class="ms-btn">Search</button>
+    </form>
+    <span class="ms-topbar__spacer"></span>
+    @if (Model.CanWrite)
+    {
+        <a class="ms-btn ms-btn--primary" asp-action="New">New design</a>
+    }
+</div>
+
+<div class="ms-table-wrap">
+    <table class="ms-table">
+        <thead>
+            <tr>
+                <th class="is-sticky-col">Design</th>
+                <th>Status</th>
+                <th>Window</th>
+                <th class="ms-table__num">In the pool</th>
+                <th>Configured</th>
+                <th>Owner</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var cycle in Model.Cycles)
+        {
+            var tracks = Model.TracksByCycle.TryGetValue(cycle.CycleId, out var t) ? t : [];
+            <tr>
+                <td class="is-sticky-col">
+                    <div><strong>@cycle.Name</strong></div>
+                    <div class="ms-code">@cycle.CycleCode</div>
+                </td>
+                <td><state-chip role="@cycle.StatusRole" label="@cycle.StatusName"></state-chip></td>
+                <td>@AsOf.Window(cycle.StartDate, cycle.EndDate)</td>
+                <td class="ms-table__num">@cycle.PoolCount.ToString("N0")</td>
+                <td>
+                    @* Five tracks: the missing one is the step to open. *@
+                    <span class="ms-tracks" role="img"
+                          aria-label="@string.Join(", ", CycleSetupListViewModel.Tracks.Select(x => x.Caption + ": " + (tracks.FirstOrDefault(tr => tr.TrackCode == x.Code)?.IsSet == true ? "set" : "not set")))">
+                        @foreach (var (code, caption) in CycleSetupListViewModel.Tracks)
+                        {
+                            var isSet = tracks.FirstOrDefault(tr => tr.TrackCode == code)?.IsSet == true;
+                            <span class="ms-tracks__track @(isSet ? "is-set" : "")" title="@caption"></span>
+                        }
+                    </span>
+                </td>
+                <td>@(cycle.OwnerName ?? cycle.OwnerLogin)</td>
+                <td>
+                    @* Row actions follow the status: a closed cycle is never changed, only copied. *@
+                    @if (cycle.CanEdit)
+                    {
+                        <a class="ms-btn ms-btn--sm" asp-action="Step" asp-route-cycleId="@cycle.CycleId" asp-route-step="1">Design</a>
+                    }
+                    else
+                    {
+                        <a class="ms-btn ms-btn--sm" asp-action="Step" asp-route-cycleId="@cycle.CycleId" asp-route-step="6">View</a>
+                    }
+
+                    @if (cycle.StatusCode == "DRAFT" && cycle.CanEdit)
+                    {
+                        <form method="post" asp-action="Open" class="ms-inline"
+                              data-confirm="Open this cycle? The pool is resolved and written as a snapshot, and the draft becomes active permanently.">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Open</button>
+                        </form>
+                        <form method="post" asp-action="Delete" class="ms-inline"
+                              data-confirm="Delete this draft? Only a draft can be deleted.">
+                            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+                            <button type="submit" class="ms-btn ms-btn--sm ms-btn--danger">Delete</button>
+                        </form>
+                    }
+
+                    @if (Model.CanWrite)
+                    {
+                        <button type="button" class="ms-btn ms-btn--sm" data-modal-open="ms-copy-@cycle.CycleId">Copy</button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+@foreach (var cycle in Model.Cycles.Where(_ => Model.CanWrite))
+{
+    <div class="ms-modal" id="ms-copy-@cycle.CycleId" hidden role="dialog" aria-modal="true">
+        <form class="ms-modal__panel" method="post" asp-action="Copy">
+            <input type="hidden" name="cycleId" value="@cycle.CycleId" />
+            <div class="ms-modal__head">
+                <strong>Copy @cycle.Name</strong>
+                <p class="ms-hero__sub">
+                    The design, its criteria, levels, processes, frameworks and pool rules come
+                    forward as a new draft. The snapshot and the decisions do not.
+                </p>
+            </div>
+            <div class="ms-modal__body">
+                <label class="ms-field">
+                    <span class="ms-field__label">New code</span>
+                    <input class="ms-input" name="newCode" required value="@(cycle.CycleCode)-COPY" />
+                </label>
+                <label class="ms-field">
+                    <span class="ms-field__label">New name</span>
+                    <input class="ms-input" name="newName" required value="@(cycle.Name) (copy)" />
+                </label>
+            </div>
+            <div class="ms-modal__foot">
+                <button type="button" class="ms-btn" data-close>Cancel</button>
+                <button type="submit" class="ms-btn ms-btn--primary">Create the draft</button>
+            </div>
+        </form>
+    </div>
+}

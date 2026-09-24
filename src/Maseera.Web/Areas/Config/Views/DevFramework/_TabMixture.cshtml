@@ -1,0 +1,102 @@
+@model DevFrameworkViewModel
+
+<div class="ms-hero__sub ms-sentence">
+    A mixture model says how a framework's weight ought to be spread across the parts. It
+    is advice with a tolerance, not a rule: a framework outside it is flagged, never
+    refused.
+</div>
+
+<div class="ms-cards">
+    @foreach (var mix in Model.MixtureModels.OrderBy(m => m.SortOrder))
+    {
+        var parts = Model.MixtureParts.Where(p => p.MixtureModelId == mix.MixtureModelId)
+            .OrderBy(p => p.SortOrder).ToList();
+        var total = parts.Sum(p => p.TargetPct);
+
+        <article class="ms-card">
+            <div class="ms-card__head">
+                <div>
+                    <ms-code>@mix.ModelCode</ms-code>
+                    <h3 class="ms-card__title">@mix.Name</h3>
+                </div>
+                <span class="ms-topbar__spacer"></span>
+                <span class="ms-micro">
+                    tolerance @mix.TolerancePct.ToString("0.#") points ·
+                    used by @mix.UsedBy.ToString("N0")
+                    @(mix.UsedBy == 1 ? "framework" : "frameworks")
+                </span>
+            </div>
+
+            <div class="ms-card__body">
+                @if (mix.Description is not null)
+                {
+                    <p class="ms-sentence">@mix.Description</p>
+                }
+
+                @* A model whose parts do not add to a hundred is stated plainly rather than
+                   silently normalised. *@
+                @if (total != 100m)
+                {
+                    <p class="ms-sentence ms-sentence--warn">
+                        The targets add to @total.ToString("0.#") rather than 100. Every gap
+                        measured against this model will be off by that much.
+                    </p>
+                }
+
+                @foreach (var part in parts)
+                {
+                    <div class="ms-mixrow">
+                        <span class="ms-mixrow__name">@part.PartName</span>
+                        <ms-bar value="@((double)part.TargetPct)"
+                                label="@($"{part.PartName}: a target of {part.TargetPct:0.#}%")"></ms-bar>
+                        <span class="ms-num">@part.TargetPct.ToString("0.#")%</span>
+                        @if (Model.CanWrite)
+                        {
+                            <form method="post" asp-action="SaveMixturePart" class="ms-inline-form">
+                                <input type="hidden" name="mixtureModelId" value="@mix.MixtureModelId" />
+                                <input type="hidden" name="partCode" value="@part.PartCode" />
+                                <input name="targetPct" type="number" step="0.1" min="0" max="100"
+                                       value="@part.TargetPct.ToString("0.#")" class="ms-input ms-input--sm"
+                                       aria-label="@($"Target for {part.PartName}")" />
+                                <button type="submit" class="ms-btn ms-btn--ghost ms-btn--sm">Set</button>
+                            </form>
+                        }
+                    </div>
+                }
+
+                @if (Model.CanWrite)
+                {
+                    <form method="post" asp-action="SaveMixturePart" class="ms-set__add">
+                        <input type="hidden" name="mixtureModelId" value="@mix.MixtureModelId" />
+                        <select name="partCode" class="ms-select" required aria-label="Part">
+                            @foreach (var part in Model.Parts.Where(p => parts.All(x => x.PartCode != p.ValueCode)))
+                            {
+                                <option value="@part.ValueCode">@part.Name</option>
+                            }
+                        </select>
+                        <input name="targetPct" type="number" step="0.1" min="0" max="100"
+                               class="ms-input ms-input--sm" placeholder="%" required aria-label="Target" />
+                        <button type="submit" class="ms-btn ms-btn--sm">Add a part</button>
+                    </form>
+                }
+            </div>
+        </article>
+    }
+</div>
+
+@if (Model.CanWrite)
+{
+    <div class="ms-card">
+        <div class="ms-card__head"><h3 class="ms-card__title">A new model</h3></div>
+        <div class="ms-card__body">
+            <form method="post" asp-action="SaveMixtureModel" class="ms-set__add">
+                <input name="modelCode" class="ms-input ms-input--sm" placeholder="Code" required maxlength="40" />
+                <input name="name" class="ms-input" placeholder="Name" required maxlength="200" />
+                <input name="description" class="ms-input" placeholder="What it is for" />
+                <input name="tolerancePct" type="number" step="0.1" min="0" max="100" value="5"
+                       class="ms-input ms-input--sm" aria-label="Tolerance in points" />
+                <button type="submit" class="ms-btn ms-btn--sm ms-btn--primary">Create</button>
+            </form>
+        </div>
+    </div>
+}

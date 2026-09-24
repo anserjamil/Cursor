@@ -1,0 +1,50 @@
+@model (StageStateRow State, string PersonnelNo, string? BoxCode)
+
+@*
+   One dropdown per row. What it offers follows the stage and where the person currently
+   sits — which is the box the database put them in, not anything worked out here.
+
+   Watch and Drop in review and calibration ask for a reason; the procedure refuses
+   without one, and the prompt is why the refusal is rare.
+*@
+@{
+    var kind = Model.State.StageKindCode;
+    var isCalibration = kind is "TR_CALIBRATE" or "SU_CALIBRATE";
+    var needsReason = kind is "TR_REVIEW" or "TR_CALIBRATE" or "SU_REVIEW" or "SU_CALIBRATE";
+    var isExistingPool = Model.BoxCode == "EXISTING_POOL";
+}
+
+<form method="post" asp-action="Decide" class="ms-rowactions"
+      data-confirm="@(needsReason ? "This decision is recorded with your reason. Continue?" : null)">
+    <input type="hidden" name="cycleStageId" value="@Model.State.CycleStageId" />
+    <input type="hidden" name="personnelNo" value="@Model.PersonnelNo" />
+
+    <select class="ms-select ms-select--inline" name="decisionCode"
+            aria-label="Decision for @Model.PersonnelNo"
+            onchange="this.form.querySelector('[data-reason]').hidden = !this.selectedOptions[0].dataset.reason">
+        <option value="NONE">No decision</option>
+
+        @if (isCalibration)
+        {
+            <option value="VP_VERY_STRONG">VP-Very Strong</option>
+            <option value="DIR_VERY_STRONG">Director-Very Strong</option>
+            <option value="DIR_STRONG">Director-Strong</option>
+            <option value="MGR_STRONG">Manager-Strong</option>
+        }
+        else if (!isExistingPool)
+        {
+            @* An existing-pool row is already nominated; it is dropped or watched, not
+               nominated again. *@
+            <option value="NOMINATED">Nominate</option>
+        }
+
+        <option value="WATCH" data-reason="@(needsReason ? "true" : null)">Watch</option>
+        <option value="DROPPED" data-reason="@(needsReason ? "true" : null)">Drop</option>
+    </select>
+
+    <input class="ms-input ms-input--reason" name="reason" data-reason hidden
+           placeholder="Reason — recorded against @Model.State.StageName"
+           aria-label="Reason for this decision" />
+
+    <button type="submit" class="ms-btn ms-btn--sm">Apply</button>
+</form>
