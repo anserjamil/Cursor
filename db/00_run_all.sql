@@ -1,9 +1,14 @@
 /* =====================================================================================
    00_run_all.sql  —  the whole schema, in order, with a receipt
    -------------------------------------------------------------------------------------
-   Run with SQLCMD mode ON against DB02:
+   Run it against DB02:
 
-       sqlcmd -S <server> -d DB02 -i db/00_run_all.sql -b
+       sqlcmd -S <server> -d DB02 -b -i db/00_run_all.sql
+
+   This file uses :r to pull in 01-14, which is a SQLCMD command.  It therefore runs
+   under the sqlcmd tool, or under SSMS with SQLCMD mode switched on (Query > SQLCMD
+   Mode).  To open it in SSMS and simply press F5, use dist/maseera-schema.sql instead:
+   the same content, flattened, with no commands in it.
 
    Every file is idempotent.  Running this a second time changes nothing and prints
    "skipped" against each object that was already there.
@@ -12,7 +17,29 @@
    non-zero, and on a fresh database every Business count must be zero.
    ===================================================================================== */
 :on error exit
+
+/* QUOTED_IDENTIFIER is set here rather than left to whoever runs the file, because the
+   two clients disagree about it.  SSMS connects with it ON; sqlcmd connects with it OFF
+   unless it is given -I.  sel.SavedView has two filtered indexes, and a filtered index
+   cannot be created with it off — so without this line the run dies two thirds of the
+   way through, in SSMS never and from a command line always, which is a miserable thing
+   to debug.
+
+   It persists for the session, so once is enough, and every procedure below is created
+   under it. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
+GO
+
+/* There is one database and its name is DB02.  NOEXEC rather than a hard error: it stops
+   the rest of the file whichever client is running it, and needs no special rights to do
+   it.  Without this, a forgotten -d scatters 164 procedures into master. */
+IF DB_NAME() <> N'DB02'
+BEGIN
+    RAISERROR(N'This script expects DB02. Pass -d DB02, or pick DB02 in the database dropdown.', 16, 1);
+    SET NOEXEC ON;
+END;
 GO
 
 PRINT '';
@@ -102,4 +129,8 @@ PRINT '';
 PRINT '#####################################################################';
 PRINT '  Done.';
 PRINT '#####################################################################';
+GO
+
+/* Leave the session usable whether or not the guard at the top fired. */
+SET NOEXEC OFF;
 GO

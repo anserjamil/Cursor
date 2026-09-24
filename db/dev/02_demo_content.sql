@@ -8,6 +8,10 @@
    DEVELOPMENT ONLY.  It creates a cycle, opens it, and grants organisations to the seeded
    users.  It is never part of a deployment.
    ===================================================================================== */
+/* As in 00_run_all.sql: SSMS and sqlcmd disagree about QUOTED_IDENTIFIER, and this file
+   must not depend on which of them is running it. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 GO
@@ -603,4 +607,8 @@ UNION ALL SELECT N'Load exceptions open',    COUNT(*) FROM stg.LoadException WHE
 GO
 
 PRINT N'dev/02 — done';
+GO
+
+/* Leave the session usable whether or not the DB02 guard at the top fired. */
+SET NOEXEC OFF;
 GO

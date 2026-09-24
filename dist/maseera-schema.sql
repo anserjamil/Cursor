@@ -20,33 +20,17 @@
    non-zero. It raises an error if one is not.
    ===================================================================================== */
 
-/* These two are set here rather than left to the client, because the two clients
-   disagree. SSMS connects with QUOTED_IDENTIFIER ON; sqlcmd connects with it OFF unless
-   it is given -I. A filtered index cannot be created with it off, so without this the
-   same file works in SSMS and fails halfway through from a command line — which is a
-   miserable thing to debug. They persist for the session, so setting them once is enough,
-   and every procedure below is created under them. */
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-SET NOCOUNT ON;
-GO
-
-/* There is one database and its name is DB02. NOEXEC rather than a fatal error: it stops
-   the rest of the file from running whichever client is used, and needs no special rights
-   to do it. */
-IF DB_NAME() <> N'DB02'
-BEGIN
-    RAISERROR(N'This script expects DB02. Pick DB02 in the database dropdown, or pass -d DB02.', 16, 1);
-    SET NOEXEC ON;
-END;
-GO
-
 /* =====================================================================================
    00_run_all.sql  —  the whole schema, in order, with a receipt
    -------------------------------------------------------------------------------------
-   Run with SQLCMD mode ON against DB02:
+   Run it against DB02:
 
-       sqlcmd -S <server> -d DB02 -i db/00_run_all.sql -b
+       sqlcmd -S <server> -d DB02 -b -i db/00_run_all.sql
+
+   This file uses :r to pull in 01-14, which is a SQLCMD command.  It therefore runs
+   under the sqlcmd tool, or under SSMS with SQLCMD mode switched on (Query > SQLCMD
+   Mode).  To open it in SSMS and simply press F5, use dist/maseera-schema.sql instead:
+   the same content, flattened, with no commands in it.
 
    Every file is idempotent.  Running this a second time changes nothing and prints
    "skipped" against each object that was already there.
@@ -56,7 +40,29 @@ GO
    ===================================================================================== */
 /* :on error exit — a SQLCMD directive, and not available when this runs in SSMS.
    The receipt at the end is what catches a failed run instead. */
+
+/* QUOTED_IDENTIFIER is set here rather than left to whoever runs the file, because the
+   two clients disagree about it.  SSMS connects with it ON; sqlcmd connects with it OFF
+   unless it is given -I.  sel.SavedView has two filtered indexes, and a filtered index
+   cannot be created with it off — so without this line the run dies two thirds of the
+   way through, in SSMS never and from a command line always, which is a miserable thing
+   to debug.
+
+   It persists for the session, so once is enough, and every procedure below is created
+   under it. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
+GO
+
+/* There is one database and its name is DB02.  NOEXEC rather than a hard error: it stops
+   the rest of the file whichever client is running it, and needs no special rights to do
+   it.  Without this, a forgotten -d scatters 164 procedures into master. */
+IF DB_NAME() <> N'DB02'
+BEGIN
+    RAISERROR(N'This script expects DB02. Pass -d DB02, or pick DB02 in the database dropdown.', 16, 1);
+    SET NOEXEC ON;
+END;
 GO
 
 PRINT '';
@@ -14526,6 +14532,6 @@ PRINT '  Done.';
 PRINT '#####################################################################';
 GO
 
-/* Leave the session usable whether or not the guard above fired. */
+/* Leave the session usable whether or not the guard at the top fired. */
 SET NOEXEC OFF;
 GO

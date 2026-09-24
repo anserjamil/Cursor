@@ -12,6 +12,10 @@
 
    There is one database and its name is DB02.  Nothing here reads from anywhere else.
    ===================================================================================== */
+/* As in 00_run_all.sql: SSMS and sqlcmd disagree about QUOTED_IDENTIFIER, and this file
+   must not depend on which of them is running it. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 GO
@@ -590,4 +594,8 @@ VALUES (N'LEGACY-7741', N'CRS-SAFE-01', N'Process safety, foundation', N'Complet
 GO
 
 PRINT N'dev/01 — source data in place';
+GO
+
+/* Leave the session usable whether or not the DB02 guard at the top fired. */
+SET NOEXEC OFF;
 GO

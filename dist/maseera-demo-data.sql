@@ -24,13 +24,6 @@
    loaded and configured entirely through the same procedures the screens call.
    ===================================================================================== */
 
-/* As in the schema file: SSMS and sqlcmd disagree about QUOTED_IDENTIFIER, and the
-   scripts below build indexes and call procedures that were created under it. */
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-SET NOCOUNT ON;
-GO
-
 /* =====================================================================================
    db/dev/01_mock_sources.sql — the customer's operational tables, invented
    -------------------------------------------------------------------------------------
@@ -45,6 +38,10 @@ GO
 
    There is one database and its name is DB02.  Nothing here reads from anywhere else.
    ===================================================================================== */
+/* As in 00_run_all.sql: SSMS and sqlcmd disagree about QUOTED_IDENTIFIER, and this file
+   must not depend on which of them is running it. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 GO
@@ -625,6 +622,10 @@ GO
 PRINT N'dev/01 — source data in place';
 GO
 
+/* Leave the session usable whether or not the DB02 guard at the top fired. */
+SET NOEXEC OFF;
+GO
+
 /* ---- 02_demo_content.sql ---------------------------------------------------- */
 
 /* =====================================================================================
@@ -637,6 +638,10 @@ GO
    DEVELOPMENT ONLY.  It creates a cycle, opens it, and grants organisations to the seeded
    users.  It is never part of a deployment.
    ===================================================================================== */
+/* As in 00_run_all.sql: SSMS and sqlcmd disagree about QUOTED_IDENTIFIER, and this file
+   must not depend on which of them is running it. */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 GO
@@ -1234,5 +1239,6 @@ GO
 PRINT N'dev/02 — done';
 GO
 
+/* Leave the session usable whether or not the DB02 guard at the top fired. */
 SET NOEXEC OFF;
 GO

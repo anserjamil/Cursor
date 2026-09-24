@@ -29,9 +29,12 @@ sqlcmd -S <server> -d DB02 -E -b -i maseera-demo-data.sql
 ```
 
 No SQLCMD mode needed, no `-I` flag needed. Both files set `QUOTED_IDENTIFIER` themselves,
-because SSMS connects with it on and `sqlcmd` connects with it off — and a filtered index
-cannot be created without it. Leaving that to the client is how the same file works in one
-and fails halfway through in the other.
+because SSMS connects with it on and `sqlcmd` connects with it off — and `sel.SavedView`'s
+two filtered indexes cannot be created without it. Leaving that to the client is how the
+same file works in one and dies two thirds of the way through in the other.
+
+`db/00_run_all.sql` sets it too, so it no longer needs `-I` either. What these flat files
+add is the absence of `:r`, which SSMS only understands with **Query → SQLCMD Mode** on.
 
 **They are idempotent.** Running `maseera-schema.sql` again over a populated database is
 the normal case — that is how an upgrade is applied, and it leaves the data alone.

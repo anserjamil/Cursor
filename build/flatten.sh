@@ -2,11 +2,12 @@
 #
 # Builds the single-file scripts in dist/ from db/.
 #
-# db/00_run_all.sql pulls in 01-14 with SQLCMD's :r, which means it will only run under
-# sqlcmd, or under SSMS with SQLCMD mode switched on. People open a .sql file in SSMS and
-# press F5; when that fails on a colon they conclude the script is broken.
+# db/00_run_all.sql pulls in 01-14 with SQLCMD's :r, which is a SQLCMD command rather than
+# a flag: the sqlcmd tool understands it with no arguments at all, and SSMS understands it
+# only with SQLCMD mode switched on. People open a .sql file in SSMS and press F5; when
+# that fails on a colon they conclude the script is broken.
 #
-# So the same content is also shipped flattened: one file, no directives, F5 works.
+# So the same content is also shipped flattened: one file, no commands, F5 works.
 #
 # GENERATED. Do not edit dist/ by hand — a copy that drifts from its source is worse than
 # no copy. Run this instead.
@@ -53,30 +54,10 @@ banner "Maseera — the whole schema, the engine and the reference data" \
    non-zero. It raises an error if one is not." > "$OUT"
 
 {
-    cat <<'PREAMBLE'
-
-/* These two are set here rather than left to the client, because the two clients
-   disagree. SSMS connects with QUOTED_IDENTIFIER ON; sqlcmd connects with it OFF unless
-   it is given -I. A filtered index cannot be created with it off, so without this the
-   same file works in SSMS and fails halfway through from a command line — which is a
-   miserable thing to debug. They persist for the session, so setting them once is enough,
-   and every procedure below is created under them. */
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-SET NOCOUNT ON;
-GO
-
-/* There is one database and its name is DB02. NOEXEC rather than a fatal error: it stops
-   the rest of the file from running whichever client is used, and needs no special rights
-   to do it. */
-IF DB_NAME() <> N'DB02'
-BEGIN
-    RAISERROR(N'This script expects DB02. Pick DB02 in the database dropdown, or pass -d DB02.', 16, 1);
-    SET NOEXEC ON;
-END;
-GO
-
-PREAMBLE
+    # The SET block, the DB02 guard and the closing SET NOEXEC OFF all come from
+    # db/00_run_all.sql itself, so that the included version and the flat one behave
+    # identically. Nothing is added here.
+    echo
 
     # 00_run_all.sql, with each :r replaced by the file it names and the SQLCMD-only
     # directives dropped.
@@ -100,11 +81,6 @@ PREAMBLE
                 ;;
         esac
     done < db/00_run_all.sql
-
-    echo ""
-    echo "/* Leave the session usable whether or not the guard above fired. */"
-    echo "SET NOEXEC OFF;"
-    echo "GO"
 } >> "$OUT"
 
 # ---- the development fixture -----------------------------------------------------------
@@ -125,24 +101,12 @@ banner "Maseera — the development fixture" \
    loaded and configured entirely through the same procedures the screens call." > "$OUT"
 
 {
-    cat <<'PREAMBLE'
-
-/* As in the schema file: SSMS and sqlcmd disagree about QUOTED_IDENTIFIER, and the
-   scripts below build indexes and call procedures that were created under it. */
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-SET NOCOUNT ON;
-GO
-
-PREAMBLE
+    echo
     cat db/dev/01_mock_sources.sql
     echo
     echo "/* ---- 02_demo_content.sql ---------------------------------------------------- */"
     echo
     cat db/dev/02_demo_content.sql
-    echo ""
-    echo "SET NOEXEC OFF;"
-    echo "GO"
 } >> "$OUT"
 
 # ---- what came out ---------------------------------------------------------------------

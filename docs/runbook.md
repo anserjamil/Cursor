@@ -61,14 +61,24 @@ application that migrates its own schema needs rights it should not have for the
 twenty-three hours of the day.
 
 ```
-sqlcmd -S <server> -d DB02 -E -b -I -i db\00_run_all.sql
+sqlcmd -S <server> -d DB02 -E -b -i db\00_run_all.sql
 ```
 
 - `-b` so a failure stops the run with a non-zero exit code.
-- `-I` for SQLCMD mode, which `:r` needs.
 - `-E` for Windows authentication, or `-U`/`-P` where that is how the server is reached.
+- `-d DB02` because the script refuses to run against anything else, and says so.
 
-`00_run_all.sql` runs `01`–`14` in order and then prints a receipt: every configuration and
+`-I` is not needed. It sets `QUOTED_IDENTIFIER ON`, which two filtered indexes require —
+but the script sets that itself rather than depending on the caller to remember a flag.
+Passing it anyway changes nothing.
+
+`00_run_all.sql` pulls in `01`–`14` with `:r`, which is a **SQLCMD command**, not a
+command-line flag: the `sqlcmd` tool understands it with no flags at all, and SSMS
+understands it only with **Query → SQLCMD Mode** switched on. To open a file in SSMS and
+simply press F5, use [`dist/maseera-schema.sql`](../dist/README.md) — the same content,
+flattened, with no commands in it.
+
+It prints a receipt: every configuration and
 reference table with its row count, and every business table with whether it holds data. It
 `RAISERROR`s if a configuration or reference table came out empty, because a silently empty
 `cfg.Message` is a screen full of blank sentences.
