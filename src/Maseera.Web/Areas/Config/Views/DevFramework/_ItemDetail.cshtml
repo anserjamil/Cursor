@@ -49,7 +49,7 @@
                         <td>@(person.JobTitle ?? "—")</td>
                         <td><ms-code>@(person.GradeCode ?? "—")</ms-code></td>
                         <td>
-                            <state-chip role="@(person.Met ? "success" : "neutral")"
+                            <state-chip role="@(person.Met ? "positive" : "neutral")"
                                         label="@(person.Met ? "Met" : "Not met")"></state-chip>
                         </td>
                         @* The reason is never optional, met or not. *@

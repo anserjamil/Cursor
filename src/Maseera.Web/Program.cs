@@ -82,6 +82,11 @@ try
         app.UseHsts();
     }
 
+    // Before routing, so it wraps the whole pipeline. Registered after UseAuthorization
+    // it would never run: authorization short-circuits with a 403 and never reaches the
+    // middleware that was meant to turn that 403 into a sentence.
+    app.UseStatusCodePagesWithReExecute("/Selection/Cycles/Refused", "?code={0}");
+
     app.UseResponseCompression();
 
     app.UseStaticFiles(new StaticFileOptions
@@ -110,9 +115,6 @@ try
     app.UseMaseeraUserContext();
 
     app.UseAuthorization();
-
-    // A refusal is a designed state and gets a page that says why, in words.
-    app.UseStatusCodePagesWithReExecute("/Selection/Cycles/Refused", "?code={0}");
 
     // -----------------------------------------------------------------------------------
     // 8 — Areas first, then the default route redirecting into Selection.

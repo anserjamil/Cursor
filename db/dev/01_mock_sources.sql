@@ -490,7 +490,11 @@ INSERT dbo.EmployeeCoverage
 SELECT r.PersonnelNo,
        PositionSuffix = CASE s.spell % 3 WHEN 0 THEN N'MGR1' WHEN 1 THEN N'DIR1' ELSE N'SUP2' END,
        PositionCode = N'POS-ACT-' + CONVERT(nvarchar(10), s.spell),
-       CoverageType = CASE WHEN s.spell % 2 = 0 THEN N'ACTING' ELSE N'TEMPORARY' END,
+       /* The type does not follow the suffix: deriving both from the same spell number
+          would make every director spell temporary and every manager spell acting, and
+          a rule that filters on the type would then read as broken rather than strict. */
+       CoverageType = CASE WHEN ABS(CHECKSUM(r.PersonnelNo, s.spell, N'type')) % 3 = 0
+                           THEN N'TEMPORARY' ELSE N'ACTING' END,
        Department = o.OrgName, OrgCode = o.OrgCode,
        StartDate = st.d,
        EndDate = DATEADD(DAY, 20 + (ABS(CHECKSUM(r.PersonnelNo, s.spell)) % 200), st.d),

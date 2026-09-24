@@ -93,7 +93,10 @@
                         <div class="ms-micro">@item.RuleText</div>
                     </div>
 
-                    <ms-bar value="@(item.PoolCount == 0 ? 0 : 100.0 * item.MetCount / item.PoolCount)"
+                    @* The bar's width comes from the same helper as the words beside it,
+                       so the fill and the label can never land on different sides of
+                       the threshold tick. *@
+                    <ms-bar value="@Share.Fraction(item.MetCount, item.PoolCount)"
                             label="@item.MetCount of @item.PoolCount"></ms-bar>
 
                     @* Every count clicks through to the people it counted. *@

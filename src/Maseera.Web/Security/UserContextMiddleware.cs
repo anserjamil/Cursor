@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Maseera.Data;
 using Maseera.Data.Repositories;
 using Microsoft.Extensions.Options;
@@ -55,9 +56,21 @@ public sealed class UserContextMiddleware
             }
         }
 
-        var asOf = await ResolveAsOfAsync(http, settings, config, http.RequestAborted);
+        // The as-of date is settled in two steps, because the two halves depend on each
+        // other: the role decides whether ?asOf= is allowed, and the role is read as of a
+        // date. So the standing date is resolved first, the context is read against it,
+        // and only an administrator who actually asked for a different date pays for a
+        // second read.
+        var asOf = ResolveStandingAsOf(settings, await config.TextAsync(SettingKeys.AsOfOverride, http.RequestAborted));
 
         var row = await security.ContextAsync(login, asOf, http.RequestAborted);
+
+        if (RequestedAsOf(http) is { } requested && requested != asOf
+            && string.Equals(row?.RoleCode, AdministratorRole, StringComparison.OrdinalIgnoreCase))
+        {
+            asOf = requested;
+            row = await security.ContextAsync(login, asOf, http.RequestAborted);
+        }
 
         if (row is null)
         {
@@ -81,12 +94,61 @@ public sealed class UserContextMiddleware
                 row.HasRlsBypass, realLogin, impersonating);
         }
 
+        // Give the request a principal that agrees with the context just resolved.
+        //
+        // It grants nothing: every screen is still decided by sec.usp_ScreenAccess_Check
+        // against the six rules, and this carries only the login the middleware already
+        // resolved and the role the DATABASE reported for it. What it fixes is two things
+        // the pipeline gets wrong without it.
+        //
+        // First, a denied request. ASP.NET Core turns a failed authorization into a 403
+        // when there is an identity and a 401 challenge when there is not. Without a
+        // principal, somebody who is perfectly well signed in but not granted a screen
+        // gets a blank 401 and a re-authentication prompt instead of the sentence that
+        // explains the refusal.
+        //
+        // Second, the as-of override. With Negotiate, User.IsInRole reflects Windows
+        // groups, which have nothing to say about a Maseera role — so the administrator
+        // check below could never pass on a real deployment either.
+        ApplyPrincipal(http, context);
+
         // Serilog enrichment: every line of this request names who took the action.
         using (Serilog.Context.LogContext.PushProperty("LoginName", context.LoginName))
         using (Serilog.Context.LogContext.PushProperty("AsOf", context.AsOf))
         {
             await _next(http);
         }
+    }
+
+    /// <summary>
+    /// The identity the rest of the pipeline sees: the resolved login, plus the role the
+    /// database reports. Windows stays the authenticator — this only restates what it
+    /// authenticated in terms the authorization pipeline can read.
+    /// </summary>
+    private static void ApplyPrincipal(HttpContext http, UserContext context)
+    {
+        if (string.IsNullOrWhiteSpace(context.LoginName)) return;
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name, context.LoginName),
+            new(ClaimTypes.NameIdentifier, context.LoginName),
+        };
+
+        if (context.RoleCode is { Length: > 0 } role)
+            claims.Add(new Claim(ClaimTypes.Role, role));
+
+        // "maseera" as the authentication type, so nothing downstream mistakes this for
+        // a second authentication scheme it could challenge against.
+        var identity = new ClaimsIdentity(claims, authenticationType: "maseera",
+            nameType: ClaimTypes.Name, roleType: ClaimTypes.Role);
+
+        // Added alongside whatever Windows established rather than replacing it, so the
+        // real Windows identity is still there to be read and logged.
+        if (http.User.Identity?.IsAuthenticated == true)
+            http.User.AddIdentity(identity);
+        else
+            http.User = new ClaimsPrincipal(identity);
     }
 
     private static string ResolveWindowsLogin(HttpContext http, MaseeraOptions settings)
@@ -104,30 +166,31 @@ public sealed class UserContextMiddleware
         return settings.DevelopmentLogin ?? string.Empty;
     }
 
+    /// <summary>The role code the as-of override is reserved to.</summary>
+    private const string AdministratorRole = "ADMIN";
+
     /// <summary>
-    /// Today, unless configuration or an administrator's ?asOf= says otherwise. The
-    /// database carries the same override, so the two always agree about which stage is
-    /// open.
+    /// Today, unless configuration says otherwise. The database carries the same
+    /// override, so the application and the database always agree about which stage is
+    /// open — and if they ever did not, every screen would be arguing with its own data.
     /// </summary>
-    private static async Task<DateOnly> ResolveAsOfAsync(
-        HttpContext http, MaseeraOptions settings, IConfigCache config, CancellationToken ct)
+    private static DateOnly ResolveStandingAsOf(MaseeraOptions settings, string? storedOverride)
     {
-        if (http.Request.Query.TryGetValue("asOf", out var q)
-            && DateOnly.TryParse(q.ToString(), out var fromQuery))
-        {
-            // Only an administrator may move the date, and the check happens against the
-            // role the database reports, not against anything the request carries.
-            if (http.User.IsInRole("ADMIN") || http.Items.ContainsKey("MaseeraAdmin"))
-                return fromQuery;
-        }
-
         if (settings.AsOfOverride is { } configured) return configured;
-
-        var stored = await config.TextAsync(SettingKeys.AsOfOverride, ct);
-        if (DateOnly.TryParse(stored, out var fromDb)) return fromDb;
-
+        if (DateOnly.TryParse(storedOverride, out var fromDb)) return fromDb;
         return DateOnly.FromDateTime(DateTime.UtcNow);
     }
+
+    /// <summary>
+    /// The date this request asked to be read as of, if it asked for one. Whether it is
+    /// allowed is decided by the caller against the role the DATABASE reports — never
+    /// against anything the request itself carries.
+    /// </summary>
+    private static DateOnly? RequestedAsOf(HttpContext http)
+        => http.Request.Query.TryGetValue("asOf", out var q)
+           && DateOnly.TryParse(q.ToString(), out var asked)
+            ? asked
+            : null;
 
     /// <summary>
     /// Test mode ignores every stage window. It is an administrator's tool, and the

@@ -48,7 +48,7 @@
                         <tr class="@(line.IsOk ? "" : "is-warned")">
                             <td class="is-sticky-col">@line.CheckName</td>
                             <td>
-                                <state-chip role="@(line.IsOk ? "success" : "danger")"
+                                <state-chip role="@(line.IsOk ? "positive" : "danger")"
                                             label="@(line.IsOk ? "Passing" : "Failing")"></state-chip>
                             </td>
                             <td class="ms-micro">@(line.Note ?? "—")</td>

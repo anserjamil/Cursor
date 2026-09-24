@@ -203,7 +203,7 @@
                                 label="@($"{rung.AttainmentPct:0.#}% met against a threshold of {(rung.ThresholdPct is { } t2 ? $"{t2:0.#}%" : "none")}")"></ms-bar>
 
                         <div class="ms-ladder__state">
-                            <state-chip role="@(rung.MustOutstanding > 0 ? "danger" : rung.IsHeld ? "success" : "neutral")"
+                            <state-chip role="@(rung.MustOutstanding > 0 ? "danger" : rung.IsHeld ? "positive" : "neutral")"
                                         label="@rung.StateWord"></state-chip>
                             @if (rung.ShortByPct is { } shortBy && rung.MustOutstanding == 0)
                             {

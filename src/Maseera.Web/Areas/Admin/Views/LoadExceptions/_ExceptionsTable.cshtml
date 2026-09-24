@@ -44,7 +44,7 @@
                     <td>
                         @if (row.IsResolved)
                         {
-                            <state-chip role="success" label="Dealt with"></state-chip>
+                            <state-chip role="positive" label="Dealt with"></state-chip>
                             <div class="ms-micro">
                                 @(row.ResolvedByLogin ?? "—")
                                 @(row.ResolvedOnUtc is { } when ? when.ToString("yyyy-MM-dd") : "")
